@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Brew Translate</title>
+  <!-- PeerJS for Direct Phone-to-Phone Walkie-Talkie -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     :root {
@@ -26,7 +27,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 12px; display: flex; justify-content: center; min-height: 100vh; }
-    .app-container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px; }
+    .app-container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 24px; }
 
     /* Header */
     .header { display: flex; justify-content: space-between; align-items: center; }
@@ -42,7 +43,7 @@
     .api-key-bar input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 0.8rem; }
     .api-key-bar button { background: var(--accent); border: none; border-radius: 6px; padding: 4px 8px; font-weight: 600; cursor: pointer; color: #0b0f19; }
 
-    /* Language Direction Selector */
+    /* Language Direction Bar */
     .lang-mode-bar { display: flex; gap: 6px; background: #0f172a; padding: 3px; border-radius: 12px; border: 1px solid #334155; }
     .btn-lang {
       flex: 1; padding: 8px 4px; background: transparent; border: none; color: var(--text-dim);
@@ -84,7 +85,7 @@
     .input-area { width: 100%; min-height: 48px; background: transparent; border: none; color: var(--text); font-size: 1.05rem; resize: none; outline: none; line-height: 1.35; }
     .input-area::placeholder { color: #64748b; }
 
-    /* Result Section */
+    /* Result Display */
     .result-section { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #334155; padding-top: 10px; }
     .speaker-tag { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
     .speaker-tag.en { color: #38bdf8; }
@@ -171,14 +172,14 @@
     <button onclick="saveApiKey()">Save</button>
   </div>
 
-  <!-- Language Selection Bar (EN ➔ TH | TH ➔ EN | Auto) -->
+  <!-- Language Selection Bar -->
   <div class="lang-mode-bar">
     <button id="langBtnEn" class="btn-lang active" onclick="setLanguageMode('en-to-th')">⇄ EN ➔ TH</button>
     <button id="langBtnTh" class="btn-lang" onclick="setLanguageMode('th-to-en')">⇄ TH ➔ EN</button>
     <button id="langBtnAuto" class="btn-lang" onclick="setLanguageMode('auto')">✨ Auto Detect</button>
   </div>
 
-  <!-- Top Gain & Replay -->
+  <!-- Gain & Replay Controls -->
   <div class="toggles">
     <button id="carGainBtn" class="btn-toggle" onclick="toggleCarGain()">
       🚗 Room Gain: <span id="gainStatus">OFF</span>
@@ -204,7 +205,7 @@
 
   <!-- Main Card -->
   <div id="mainCard" class="card">
-    <textarea id="inputText" class="input-area" placeholder="Speak or type natural English/Thai..." onkeydown="handleEnter(event)"></textarea>
+    <textarea id="inputText" class="input-area" placeholder="Speak or type English..." onkeydown="handleEnter(event)"></textarea>
     
     <div id="resultCard" class="result-section" style="display: none;">
       <div id="speakerBadge" class="speaker-tag"></div>
@@ -235,7 +236,7 @@
     </button>
   </div>
 
-  <!-- Review Stream -->
+  <!-- Conversation History -->
   <div class="history-header">
     <span class="history-title">Conversation Stream</span>
     <button class="btn-clear" onclick="clearHistory()">Clear</button>
@@ -244,7 +245,7 @@
 </div>
 
 <script>
-  // --- TURBO RAM CACHE ---
+  // --- HIGH-SPEED IN-MEMORY RAM CACHE ---
   const RAM_CACHE = new Map();
   const SEED_DATA = {
     "not spicy": {
@@ -278,7 +279,7 @@
   Object.entries(storedCache).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
 
   // --- STATE ---
-  let langMode = 'en-to-th'; // 'en-to-th' | 'th-to-en' | 'auto'
+  let langMode = 'en-to-th';
   let isCarGain = false;
   let isAutoListenEngaged = false;
   let isHardwareRunning = false;
@@ -286,17 +287,22 @@
   let peer = null;
   let conn = null;
   let recognition = null;
-  let audioStream = null; // Keeps mic channel open silently to eliminate OS beeps
+  let audioStream = null;
+  let audioCtx = null;
+  let gainNode = null;
   let currentTranslationData = null;
   let geminiKey = localStorage.getItem('BREW_GEMINI_KEY') || '';
   let conversationHistory = JSON.parse(localStorage.getItem('BREW_HISTORY') || '[]');
 
+  // 5-Minute Inactivity Watchdog
   const INACTIVITY_LIMIT_MS = 5 * 60 * 1000;
   let inactivityTimer = null;
+
+  // Speaker Alternation
   let lastThaiSpeaker = 'speaker-th2';
   let lastSpeechTimestamp = 0;
 
-  // Initialize UI
+  // UI Setup
   if (!geminiKey) {
     document.getElementById('apiKeySection').style.display = 'flex';
   } else {
@@ -319,7 +325,7 @@
     }
   }
 
-  // --- LANGUAGE MODE TOGGLE ---
+  // --- LANGUAGE CONTROLS ---
   function setLanguageMode(mode) {
     langMode = mode;
     document.getElementById('langBtnEn').className = 'btn-lang ' + (mode === 'en-to-th' ? 'active' : '');
@@ -331,7 +337,6 @@
     else if (mode === 'th-to-en') inputArea.placeholder = "พูดภาษาไทย หรือพิมพ์ที่นี่...";
     else inputArea.placeholder = "Auto-detecting English / Thai conversation...";
 
-    // Reconfigure recognition language cleanly if running
     if (recognition) {
       recognition.lang = getSelectedRecLang();
     }
@@ -340,7 +345,7 @@
   function getSelectedRecLang() {
     if (langMode === 'en-to-th') return 'en-US';
     if (langMode === 'th-to-en') return 'th-TH';
-    return 'th-TH'; // Handles Thai and natural English code-switching in Chrome
+    return 'th-TH';
   }
 
   function setOutputMode(mode) {
@@ -350,16 +355,19 @@
     document.getElementById('modeText').className = 'mode-btn ' + (mode === 'text' ? 'selected' : '');
   }
 
-  function toggleCarGain() {
+  // --- HARDWARE AUDIO GAIN FILTER ---
+  async function toggleCarGain() {
     isCarGain = !isCarGain;
     const btn = document.getElementById('carGainBtn');
     const status = document.getElementById('gainStatus');
     if (isCarGain) {
       btn.classList.add('gain-active');
       status.innerText = "+12dB BOOST";
+      if (gainNode) gainNode.gain.value = 3.98; // ~+12dB voltage multiplier
     } else {
       btn.classList.remove('gain-active');
       status.innerText = "OFF";
+      if (gainNode) gainNode.gain.value = 1.0;
     }
   }
 
@@ -372,14 +380,25 @@
     }
   }
 
-  // --- SILENT BACKGROUND AUDIO STREAM (KEEPS MIC ACTIVE TO PREVENT BEEPING) ---
+  // --- SILENT HARDWARE AUDIO LOCK ---
   async function lockMicStream() {
     try {
       if (!audioStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } 
+        });
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext && !audioCtx) {
+          audioCtx = new AudioContext();
+          const source = audioCtx.createMediaStreamSource(audioStream);
+          gainNode = audioCtx.createGain();
+          gainNode.gain.value = isCarGain ? 3.98 : 1.0;
+          source.connect(gainNode);
+        }
       }
     } catch(e) {
-      // Graceful fallback if getUserMedia is denied
+      console.warn("Audio hardware stream notice:", e);
     }
   }
 
@@ -387,6 +406,11 @@
     if (audioStream) {
       audioStream.getTracks().forEach(track => track.stop());
       audioStream = null;
+    }
+    if (audioCtx) {
+      audioCtx.close();
+      audioCtx = null;
+      gainNode = null;
     }
   }
 
@@ -436,7 +460,7 @@
     }
   }
 
-  // --- SPEECH RECOGNITION ENGINE (NO BEEPS / CONTINUOUS) ---
+  // --- CONTINUOUS RECOGNITION ENGINE ---
   function initSpeechEngine() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return null;
@@ -466,7 +490,7 @@
     };
 
     rec.onerror = (e) => {
-      if (e.error === 'no-speech') return; // Silent silence drop
+      if (e.error === 'no-speech') return;
       console.warn("Speech recognition notice:", e.error);
     };
 
@@ -479,13 +503,12 @@
         unlockMicStream();
       }
 
-      // Seamless background restart without system beeps
       if (isAutoListenEngaged) {
         setTimeout(() => {
           if (isAutoListenEngaged && !isHardwareRunning) {
             try { rec.start(); } catch(err){}
           }
-        }, 150);
+        }, 120);
       }
     };
 
@@ -522,7 +545,6 @@
     let direction = 'English to Spoken Thai';
     let targetLangCode = 'th-TH';
 
-    // Determine direction based on explicit toggle or character detection
     if (langMode === 'th-to-en' || (langMode === 'auto' && hasThaiScript)) {
       if (timeDelta > 2000) {
         lastThaiSpeaker = (lastThaiSpeaker === 'speaker-th1') ? 'speaker-th2' : 'speaker-th1';
@@ -543,7 +565,7 @@
 
     const cacheKey = cleanText.toLowerCase();
 
-    // RAM Cache Check (0ms)
+    // Instant RAM hit (0ms latency)
     if (RAM_CACHE.has(cacheKey)) {
       processResult(cleanText, RAM_CACHE.get(cacheKey), speakerRole, speakerLabel, targetLangCode);
       return;
@@ -560,16 +582,16 @@
     
     const targetEl = document.getElementById('translatedText');
     targetEl.className = `target-text ${speakerRole === 'speaker-th1' ? 'en-out' : speakerRole === 'speaker-th2' ? 'en-out2' : 'th-out'}`;
-    targetEl.innerHTML = `<span class="loading-pulse">Translating conversational flow...</span>`;
+    targetEl.innerHTML = `<span class="loading-pulse">Translating natural conversation...</span>`;
 
     const systemPrompt = `You are "Brew Translate", an ultra-natural conversational Thai-English translator.
 Translate direction: ${direction}.
-Translate naturally with genuine spoken slang and particles (e.g. นะ, ครับ/ค่ะ, อ่ะ, ป่ะ, เลย).
+Translate with authentic spoken Thai particles (นะ, ครับ/ค่ะ, อ่ะ, ป่ะ, เลย) and avoid stiff dictionary phrases.
 
 Output valid JSON ONLY:
 {
   "translatedText": "Natural spoken translation",
-  "enSoundsLike": "Intuitive phonetic guide with CAPITALIZED stressed syllables",
+  "enSoundsLike": "Intuitive phonetic guide with CAPITALIZED stressed syllables (e.g. 'MY-PET na (Falling-Low)')",
   "thSoundsLike": "คำอ่านภาษาไทย for Thai native pronunciation",
   "toneTip": "1 brief sentence on tone or nuance"
 }`;
@@ -594,7 +616,7 @@ Output valid JSON ONLY:
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
-      // Save to active RAM & localStorage
+      // Memory and storage sync
       RAM_CACHE.set(cacheKey, result);
       const cacheObj = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
       cacheObj[cacheKey] = result;
@@ -647,7 +669,7 @@ Output valid JSON ONLY:
     document.getElementById('toneTip').innerText = data.toneTip;
   }
 
-  // --- TEXT TO SPEECH ---
+  // --- AUDIO PLAYBACK PROFILES ---
   function speakVoiceActor(text, langCode, speakerRole) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -673,7 +695,7 @@ Output valid JSON ONLY:
     }
   }
 
-  // --- STREAM LOGGING ---
+  // --- CONVERSATION STREAM LOGGING ---
   function logToHistory(entry) {
     conversationHistory.unshift(entry);
     if (conversationHistory.length > 60) conversationHistory.pop();
