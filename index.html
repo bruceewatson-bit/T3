@@ -42,7 +42,16 @@
     .api-key-bar input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 0.8rem; }
     .api-key-bar button { background: var(--accent); border: none; border-radius: 6px; padding: 4px 8px; font-weight: 600; cursor: pointer; color: #0b0f19; }
 
-    /* Top Toggles */
+    /* Language Direction Selector */
+    .lang-mode-bar { display: flex; gap: 6px; background: #0f172a; padding: 3px; border-radius: 12px; border: 1px solid #334155; }
+    .btn-lang {
+      flex: 1; padding: 8px 4px; background: transparent; border: none; color: var(--text-dim);
+      font-size: 0.75rem; font-weight: 700; border-radius: 8px; cursor: pointer; text-align: center;
+      transition: all 0.2s;
+    }
+    .btn-lang.active { background: var(--accent); color: #0b0f19; box-shadow: 0 0 8px var(--accent-glow); }
+
+    /* Top Controls */
     .toggles { display: flex; gap: 6px; }
     .btn-toggle {
       flex: 1; padding: 8px 6px; background: var(--card-bg); border: 1px solid #334155;
@@ -162,7 +171,14 @@
     <button onclick="saveApiKey()">Save</button>
   </div>
 
-  <!-- Top Gain & Manual Overrides -->
+  <!-- Language Selection Bar (EN ➔ TH | TH ➔ EN | Auto) -->
+  <div class="lang-mode-bar">
+    <button id="langBtnEn" class="btn-lang active" onclick="setLanguageMode('en-to-th')">⇄ EN ➔ TH</button>
+    <button id="langBtnTh" class="btn-lang" onclick="setLanguageMode('th-to-en')">⇄ TH ➔ EN</button>
+    <button id="langBtnAuto" class="btn-lang" onclick="setLanguageMode('auto')">✨ Auto Detect</button>
+  </div>
+
+  <!-- Top Gain & Replay -->
   <div class="toggles">
     <button id="carGainBtn" class="btn-toggle" onclick="toggleCarGain()">
       🚗 Room Gain: <span id="gainStatus">OFF</span>
@@ -188,7 +204,7 @@
 
   <!-- Main Card -->
   <div id="mainCard" class="card">
-    <textarea id="inputText" class="input-area" placeholder="Speak or listen to natural English / Thai conversation..." onkeydown="handleEnter(event)"></textarea>
+    <textarea id="inputText" class="input-area" placeholder="Speak or type natural English/Thai..." onkeydown="handleEnter(event)"></textarea>
     
     <div id="resultCard" class="result-section" style="display: none;">
       <div id="speakerBadge" class="speaker-tag"></div>
@@ -228,7 +244,7 @@
 </div>
 
 <script>
-  // --- IN-MEMORY TURBO RAM CACHE ---
+  // --- TURBO RAM CACHE ---
   const RAM_CACHE = new Map();
   const SEED_DATA = {
     "not spicy": {
@@ -262,6 +278,7 @@
   Object.entries(storedCache).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
 
   // --- STATE ---
+  let langMode = 'en-to-th'; // 'en-to-th' | 'th-to-en' | 'auto'
   let isCarGain = false;
   let isAutoListenEngaged = false;
   let isHardwareRunning = false;
@@ -269,15 +286,13 @@
   let peer = null;
   let conn = null;
   let recognition = null;
+  let audioStream = null; // Keeps mic channel open silently to eliminate OS beeps
   let currentTranslationData = null;
   let geminiKey = localStorage.getItem('BREW_GEMINI_KEY') || '';
   let conversationHistory = JSON.parse(localStorage.getItem('BREW_HISTORY') || '[]');
 
-  // Inactivity Watchdog (5 Minutes = 300,000 ms)
   const INACTIVITY_LIMIT_MS = 5 * 60 * 1000;
   let inactivityTimer = null;
-
-  // Speaker Alternation
   let lastThaiSpeaker = 'speaker-th2';
   let lastSpeechTimestamp = 0;
 
@@ -304,6 +319,30 @@
     }
   }
 
+  // --- LANGUAGE MODE TOGGLE ---
+  function setLanguageMode(mode) {
+    langMode = mode;
+    document.getElementById('langBtnEn').className = 'btn-lang ' + (mode === 'en-to-th' ? 'active' : '');
+    document.getElementById('langBtnTh').className = 'btn-lang ' + (mode === 'th-to-en' ? 'active' : '');
+    document.getElementById('langBtnAuto').className = 'btn-lang ' + (mode === 'auto' ? 'active' : '');
+
+    const inputArea = document.getElementById('inputText');
+    if (mode === 'en-to-th') inputArea.placeholder = "Speak or type English...";
+    else if (mode === 'th-to-en') inputArea.placeholder = "พูดภาษาไทย หรือพิมพ์ที่นี่...";
+    else inputArea.placeholder = "Auto-detecting English / Thai conversation...";
+
+    // Reconfigure recognition language cleanly if running
+    if (recognition) {
+      recognition.lang = getSelectedRecLang();
+    }
+  }
+
+  function getSelectedRecLang() {
+    if (langMode === 'en-to-th') return 'en-US';
+    if (langMode === 'th-to-en') return 'th-TH';
+    return 'th-TH'; // Handles Thai and natural English code-switching in Chrome
+  }
+
   function setOutputMode(mode) {
     outputMode = mode;
     document.getElementById('modeBoth').className = 'mode-btn ' + (mode === 'both' ? 'selected' : '');
@@ -324,24 +363,41 @@
     }
   }
 
-  // --- 5-MINUTE INACTIVITY WATCHDOG ---
   function resetInactivityTimer() {
     if (inactivityTimer) clearTimeout(inactivityTimer);
     if (isAutoListenEngaged) {
       inactivityTimer = setTimeout(() => {
-        // 5 continuous minutes without sound reached: shutdown gracefully
         stopAutoListenMode();
       }, INACTIVITY_LIMIT_MS);
     }
   }
 
-  // --- 1/3 AUTO-LISTEN BUTTON TOGGLE ---
-  function toggleContinuousListen() {
+  // --- SILENT BACKGROUND AUDIO STREAM (KEEPS MIC ACTIVE TO PREVENT BEEPING) ---
+  async function lockMicStream() {
+    try {
+      if (!audioStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+    } catch(e) {
+      // Graceful fallback if getUserMedia is denied
+    }
+  }
+
+  function unlockMicStream() {
+    if (audioStream) {
+      audioStream.getTracks().forEach(track => track.stop());
+      audioStream = null;
+    }
+  }
+
+  // --- 1/3 AUTO-LISTEN BUTTON ---
+  async function toggleContinuousListen() {
     isAutoListenEngaged = !isAutoListenEngaged;
     const listenBtn = document.getElementById('listenToggleBtn');
     const badge = document.getElementById('listenBadgeStatus');
 
     if (isAutoListenEngaged) {
+      await lockMicStream();
       listenBtn.classList.add('active');
       badge.innerText = "5M ON";
       badge.style.color = "var(--success)";
@@ -355,6 +411,8 @@
   function stopAutoListenMode() {
     isAutoListenEngaged = false;
     if (inactivityTimer) clearTimeout(inactivityTimer);
+    unlockMicStream();
+
     const listenBtn = document.getElementById('listenToggleBtn');
     const badge = document.getElementById('listenBadgeStatus');
     listenBtn.classList.remove('active');
@@ -367,15 +425,10 @@
   }
 
   // --- 2/3 MANUAL SPEAK BUTTON ---
-  function triggerManualSpeak() {
-    if (isAutoListenEngaged) {
-      // Already running cleanly in background
-      const speakBtn = document.getElementById('speakBtn');
-      speakBtn.classList.add('listening');
-      setTimeout(() => speakBtn.classList.remove('listening'), 1500);
-      return;
-    }
+  async function triggerManualSpeak() {
+    if (isAutoListenEngaged) return;
 
+    await lockMicStream();
     if (isHardwareRunning) {
       if (recognition) recognition.stop();
     } else {
@@ -383,7 +436,7 @@
     }
   }
 
-  // --- ROBUST HARDWARE SPEECH ENGINE (NO FLICKER / NO NOTIFICATION CHIMES) ---
+  // --- SPEECH RECOGNITION ENGINE (NO BEEPS / CONTINUOUS) ---
   function initSpeechEngine() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return null;
@@ -391,7 +444,7 @@
     const rec = new SpeechRecognition();
     rec.continuous = true;
     rec.interimResults = false;
-    rec.lang = 'th-TH'; // Code-switches naturally between Thai and English
+    rec.lang = getSelectedRecLang();
 
     rec.onstart = () => {
       isHardwareRunning = true;
@@ -403,18 +456,17 @@
     };
 
     rec.onresult = (event) => {
-      resetInactivityTimer(); // Active speech detected: reset 5-min timer
+      resetInactivityTimer();
       const results = event.results;
       const lastTranscript = results[results.length - 1][0].transcript.trim();
       if (lastTranscript) {
         document.getElementById('inputText').value = lastTranscript;
-        executeAutoTranslation(lastTranscript);
+        executeTranslation(lastTranscript);
       }
     };
 
     rec.onerror = (e) => {
-      // Silence time-out is normal: do not alert or abort
-      if (e.error === 'no-speech') return;
+      if (e.error === 'no-speech') return; // Silent silence drop
       console.warn("Speech recognition notice:", e.error);
     };
 
@@ -424,15 +476,16 @@
         const speakBtn = document.getElementById('speakBtn');
         speakBtn.classList.remove('listening');
         speakBtn.innerText = "🎙️ Tap to Speak";
+        unlockMicStream();
       }
 
-      // Smooth, silent restart without flashing buttons
+      // Seamless background restart without system beeps
       if (isAutoListenEngaged) {
         setTimeout(() => {
           if (isAutoListenEngaged && !isHardwareRunning) {
             try { rec.start(); } catch(err){}
           }
-        }, 200);
+        }, 150);
       }
     };
 
@@ -441,6 +494,7 @@
 
   function startSpeechHardware() {
     if (!recognition) recognition = initSpeechEngine();
+    recognition.lang = getSelectedRecLang();
     if (recognition && !isHardwareRunning) {
       try { recognition.start(); } catch (e) {}
     }
@@ -449,12 +503,12 @@
   function handleEnter(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      executeAutoTranslation(e.target.value);
+      executeTranslation(e.target.value);
     }
   }
 
-  // --- TRANSLATION ENGINE & CONVERSATION DETERMINATION ---
-  async function executeAutoTranslation(text) {
+  // --- TRANSLATION CORE ---
+  async function executeTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
 
@@ -468,7 +522,8 @@
     let direction = 'English to Spoken Thai';
     let targetLangCode = 'th-TH';
 
-    if (hasThaiScript) {
+    // Determine direction based on explicit toggle or character detection
+    if (langMode === 'th-to-en' || (langMode === 'auto' && hasThaiScript)) {
       if (timeDelta > 2000) {
         lastThaiSpeaker = (lastThaiSpeaker === 'speaker-th1') ? 'speaker-th2' : 'speaker-th1';
       }
@@ -476,6 +531,11 @@
       speakerLabel = (speakerRole === 'speaker-th1') ? '👩 Thai Speaker 1' : '👱 Thai Speaker 2';
       direction = 'Thai to Conversational English';
       targetLangCode = 'en-US';
+    } else {
+      speakerRole = 'speaker-en';
+      speakerLabel = '🧔 English Speaker';
+      direction = 'English to Spoken Thai';
+      targetLangCode = 'th-TH';
     }
 
     const mainCard = document.getElementById('mainCard');
@@ -483,7 +543,7 @@
 
     const cacheKey = cleanText.toLowerCase();
 
-    // Instant RAM response
+    // RAM Cache Check (0ms)
     if (RAM_CACHE.has(cacheKey)) {
       processResult(cleanText, RAM_CACHE.get(cacheKey), speakerRole, speakerLabel, targetLangCode);
       return;
@@ -494,7 +554,7 @@
       return;
     }
 
-    // UI Loading
+    // Loading State
     document.getElementById('resultCard').style.display = 'flex';
     document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
     
@@ -534,7 +594,7 @@ Output valid JSON ONLY:
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
-      // Cache locally
+      // Save to active RAM & localStorage
       RAM_CACHE.set(cacheKey, result);
       const cacheObj = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
       cacheObj[cacheKey] = result;
@@ -587,7 +647,7 @@ Output valid JSON ONLY:
     document.getElementById('toneTip').innerText = data.toneTip;
   }
 
-  // --- TEXT TO SPEECH (VOICE ACTOR PITCH PROFILES) ---
+  // --- TEXT TO SPEECH ---
   function speakVoiceActor(text, langCode, speakerRole) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -613,7 +673,7 @@ Output valid JSON ONLY:
     }
   }
 
-  // --- HISTORY STREAM ---
+  // --- STREAM LOGGING ---
   function logToHistory(entry) {
     conversationHistory.unshift(entry);
     if (conversationHistory.length > 60) conversationHistory.pop();
