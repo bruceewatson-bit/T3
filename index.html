@@ -331,14 +331,13 @@
     }
   }
 
-  // --- TRANSLATION CORE ---
+  // --- TRANSLATION CORE (AUTO-FALLBACK ENGINE) ---
   async function executeTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
 
     const cacheKey = cleanText.toLowerCase();
 
-    // Instant Cache Match
     if (LOCAL_CACHE[cacheKey]) {
       processResult(cleanText, LOCAL_CACHE[cacheKey], 'user');
       return;
@@ -349,7 +348,6 @@
       return;
     }
 
-    // Show loading
     document.getElementById('resultCard').style.display = 'flex';
     document.getElementById('translatedText').innerHTML = `<span class="loading-pulse">Translating natural Thai...</span>`;
 
@@ -366,26 +364,45 @@ Output MUST be valid JSON only without markdown formatting:
   "toneTip": "1 concise sentence on natural tone or slang nuance"
 }`;
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+    const modelsToTry = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest'];
+    let successfulData = null;
+    let lastErrorMsg = '';
+
+    for (const model of modelsToTry) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: cleanText }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
+          })
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          lastErrorMsg = data.error.message;
+          continue;
+        }
+
+        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+          successfulData = data;
+          break;
+        }
+      } catch (err) {
+        lastErrorMsg = err.message;
+      }
+    }
+
+    if (!successfulData) {
+      document.getElementById('translatedText').innerText = `Error: ${lastErrorMsg || 'API request failed'}`;
+      return;
+    }
 
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: cleanText }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error.message || 'API Error');
-      }
-
-      let rawText = data.candidates[0].content.parts[0].text;
+      let rawText = successfulData.candidates[0].content.parts[0].text;
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
@@ -393,10 +410,9 @@ Output MUST be valid JSON only without markdown formatting:
       localStorage.setItem('BREW_CACHE', JSON.stringify(LOCAL_CACHE));
 
       processResult(cleanText, result, 'user');
-
-    } catch (err) {
-      console.error(err);
-      document.getElementById('translatedText').innerText = `Error: ${err.message || 'Translation failed'}`;
+    } catch (parseErr) {
+      console.error(parseErr);
+      document.getElementById('translatedText').innerText = "Translation format error. Try again.";
     }
   }
 
