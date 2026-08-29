@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Brew Translate</title>
-  <!-- PeerJS for Direct Phone-to-Phone Walkie-Talkie -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     :root {
@@ -12,13 +11,17 @@
       --card-bg: #1e293b;
       --card-sub: #0f172a;
       --accent: #f59e0b;
-      --accent-glow: rgba(245, 158, 11, 0.2);
+      --accent-glow: rgba(245, 158, 11, 0.25);
       --text: #f8fafc;
       --text-dim: #94a3b8;
       --success: #10b981;
       --error: #ef4444;
-      --partner-bubble: #1e1b4b;
-      --user-bubble: #172554;
+      --speaker-en: #0284c7;
+      --speaker-th1: #9333ea;
+      --speaker-th2: #059669;
+      --bubble-en: #0f172a;
+      --bubble-th1: #1e1b4b;
+      --bubble-th2: #064e3b;
       --radius: 16px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -39,17 +42,17 @@
     .api-key-bar input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 0.8rem; }
     .api-key-bar button { background: var(--accent); border: none; border-radius: 6px; padding: 4px 8px; font-weight: 600; cursor: pointer; color: #0b0f19; }
 
-    /* Mode Toggles */
+    /* Top Toggles */
     .toggles { display: flex; gap: 6px; }
     .btn-toggle {
       flex: 1; padding: 8px 6px; background: var(--card-bg); border: 1px solid #334155;
-      color: var(--text-dim); border-radius: 10px; font-size: 0.75rem; font-weight: 600;
+      color: var(--text-dim); border-radius: 10px; font-size: 0.75rem; font-weight: 700;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
       transition: all 0.2s ease;
     }
-    .btn-toggle.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+    .btn-toggle.gain-active { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: var(--success); }
 
-    /* Output Mode Selector (Both / Voice / Text) */
+    /* Output Mode Selector */
     .output-mode-container { display: flex; background: #0f172a; border-radius: 10px; border: 1px solid #334155; padding: 2px; }
     .mode-btn {
       flex: 1; padding: 6px 4px; font-size: 0.72rem; font-weight: 700; color: var(--text-dim);
@@ -63,48 +66,74 @@
     .room-bar input { flex: 1; background: transparent; border: none; color: white; font-size: 0.85rem; outline: none; }
     .room-bar button { padding: 5px 10px; background: #334155; border: none; color: white; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 
-    /* Input Card */
-    .card { background: var(--card-bg); border: 1px solid #334155; border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-    .input-area { width: 100%; min-height: 50px; background: transparent; border: none; color: var(--text); font-size: 1.05rem; resize: none; outline: none; line-height: 1.35; }
+    /* Main Card */
+    .card { background: var(--card-bg); border: 1px solid #334155; border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; transition: border 0.3s; }
+    .card.speaker-en { border-color: var(--speaker-en); }
+    .card.speaker-th1 { border-color: var(--speaker-th1); }
+    .card.speaker-th2 { border-color: var(--speaker-th2); }
+
+    .input-area { width: 100%; min-height: 48px; background: transparent; border: none; color: var(--text); font-size: 1.05rem; resize: none; outline: none; line-height: 1.35; }
     .input-area::placeholder { color: #64748b; }
 
-    /* Current Live Translation Result */
+    /* Result Section */
     .result-section { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #334155; padding-top: 10px; }
-    .target-text { font-size: 1.4rem; font-weight: 700; color: #38bdf8; line-height: 1.3; }
+    .speaker-tag { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+    .speaker-tag.en { color: #38bdf8; }
+    .speaker-tag.th1 { color: #c084fc; }
+    .speaker-tag.th2 { color: #34d399; }
+
+    .target-text { font-size: 1.45rem; font-weight: 700; line-height: 1.3; }
+    .target-text.en-out { color: #c084fc; }
+    .target-text.en-out2 { color: #34d399; }
+    .target-text.th-out { color: #38bdf8; }
+
     .phonetic-box { background: var(--card-sub); padding: 8px 10px; border-radius: 8px; border-left: 3px solid var(--accent); }
     .phonetic-label { font-size: 0.65rem; text-transform: uppercase; color: var(--accent); font-weight: 800; }
     .phonetic-text { font-size: 0.95rem; font-weight: 600; color: #e2e8f0; margin-top: 2px; }
     .thai-phonetic-text { font-size: 0.9rem; color: #a5f3fc; margin-top: 2px; }
     .tone-tip { font-size: 0.75rem; color: #a3e635; font-style: italic; }
-    .loading-pulse { animation: pulse 1s infinite alternate; color: var(--text-dim); }
+    .loading-pulse { animation: pulse 0.8s infinite alternate; color: var(--text-dim); }
 
-    /* Mic Bar */
-    .mic-bar { display: flex; gap: 8px; align-items: center; }
-    .btn-mic {
-      flex: 1; padding: 14px; background: var(--accent); border: none; border-radius: var(--radius);
-      color: #0b0f19; font-size: 1rem; font-weight: 700; cursor: pointer; display: flex;
-      align-items: center; justify-content: center; gap: 8px;
+    /* Split 1/3 Listen & 2/3 Speak Mic Bar */
+    .mic-bar { display: flex; gap: 8px; align-items: stretch; }
+    .btn-listen {
+      flex: 1; padding: 14px 8px; background: #1e293b; border: 1px solid #334155;
+      border-radius: var(--radius); color: var(--text-dim); font-size: 0.85rem; font-weight: 800;
+      cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      transition: all 0.2s;
     }
-    .btn-mic.listening { background: var(--error); color: white; animation: pulse 1.2s infinite; }
+    .btn-listen.active { background: rgba(16, 185, 129, 0.25); border-color: var(--success); color: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
 
-    /* Conversation History / Review Section */
+    .btn-speak {
+      flex: 2; padding: 14px; background: var(--accent); border: none; border-radius: var(--radius);
+      color: #0b0f19; font-size: 1.05rem; font-weight: 800; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
+    }
+    .btn-speak.listening { background: var(--error); color: white; animation: pulse 1.2s infinite; }
+
+    /* Conversation History Stream */
     .history-header { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 0 4px; }
     .history-title { font-size: 0.8rem; text-transform: uppercase; font-weight: 800; color: var(--text-dim); letter-spacing: 0.5px; }
     .btn-clear { background: transparent; border: none; color: #ef4444; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
     
-    .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; padding-right: 2px; }
+    .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 2px; }
     .history-bubble {
       padding: 10px 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px;
       font-size: 0.85rem; border: 1px solid #334155; position: relative;
     }
-    .history-bubble.user { background: var(--user-bubble); border-left: 3px solid #38bdf8; }
-    .history-bubble.partner { background: var(--partner-bubble); border-left: 3px solid #c084fc; }
+    .history-bubble.speaker-en { background: var(--bubble-en); border-left: 4px solid var(--speaker-en); }
+    .history-bubble.speaker-th1 { background: var(--bubble-th1); border-left: 4px solid var(--speaker-th1); }
+    .history-bubble.speaker-th2 { background: var(--bubble-th2); border-left: 4px solid var(--speaker-th2); }
     
-    .bubble-meta { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-dim); font-weight: 600; }
+    .bubble-meta { display: flex; justify-content: space-between; font-size: 0.68rem; font-weight: 800; }
+    .bubble-meta.en { color: #38bdf8; }
+    .bubble-meta.th1 { color: #c084fc; }
+    .bubble-meta.th2 { color: #34d399; }
+    
     .bubble-orig { color: #cbd5e1; font-style: italic; }
     .bubble-trans { font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-top: 2px; }
     .bubble-phonetic { font-size: 0.8rem; color: #a5f3fc; }
-    .bubble-replay { position: absolute; right: 8px; bottom: 8px; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 6px; padding: 2px 6px; font-size: 0.75rem; cursor: pointer; }
+    .bubble-replay { position: absolute; right: 8px; bottom: 8px; background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; }
 
     @keyframes pulse { 0% { opacity: 1; } 100% { opacity: 0.5; } }
   </style>
@@ -130,17 +159,17 @@
     <button onclick="saveApiKey()">Save</button>
   </div>
 
-  <!-- Mic Sensitivity & Language Toggles -->
+  <!-- Top Gain & Manual Overrides -->
   <div class="toggles">
-    <button id="carModeBtn" class="btn-toggle" onclick="toggleCarMode()">
-      🚗 Car/Room Gain: <span id="carModeStatus">OFF</span>
+    <button id="carGainBtn" class="btn-toggle" onclick="toggleCarGain()">
+      🚗 Room Gain: <span id="gainStatus">OFF</span>
     </button>
-    <button id="langToggleBtn" class="btn-toggle active" onclick="switchLanguage()">
-      ⇄ EN ➔ TH Spoken
+    <button id="replayLastBtn" class="btn-toggle" onclick="speakCurrentTranslation()">
+      🔊 Replay Last
     </button>
   </div>
 
-  <!-- Walkie-Talkie Output Modes (Both / Voice Only / Text Only) -->
+  <!-- Output Modes -->
   <div class="output-mode-container">
     <button id="modeBoth" class="mode-btn selected" onclick="setOutputMode('both')">🔊 + 💬 Both</button>
     <button id="modeVoice" class="mode-btn" onclick="setOutputMode('voice')">🔊 Voice Only</button>
@@ -154,18 +183,16 @@
     <button onclick="connectToPartner()">Pair</button>
   </div>
 
-  <!-- Main Card -->
-  <div class="card">
-    <textarea id="inputText" class="input-area" placeholder="Speak or type natural English/Thai..." onkeydown="handleEnter(event)"></textarea>
+  <!-- Main Card with Tri-Speaker Styling -->
+  <div id="mainCard" class="card">
+    <textarea id="inputText" class="input-area" placeholder="Speak or listen to natural English / Thai conversation..." onkeydown="handleEnter(event)"></textarea>
     
     <div id="resultCard" class="result-section" style="display: none;">
-      <div>
-        <span style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase;">Spoken Translation</span>
-        <div id="translatedText" class="target-text"></div>
-      </div>
+      <div id="speakerBadge" class="speaker-tag"></div>
+      <div id="translatedText" class="target-text"></div>
 
       <div id="enPhoneticBox" class="phonetic-box">
-        <div class="phonetic-label">Pronunciation Breakdown</div>
+        <div class="phonetic-label">English Speaker Guide</div>
         <div id="enSoundsLike" class="phonetic-text"></div>
       </div>
 
@@ -178,41 +205,29 @@
     </div>
   </div>
 
-  <!-- Mic & Audio Action Bar -->
+  <!-- Split Mic Bar: 1/3 Listen | 2/3 Speak -->
   <div class="mic-bar">
-    <button id="micBtn" class="btn-mic" onclick="toggleSpeech()">
-      🎙️ Tap to Speak
+    <button id="listenToggleBtn" class="btn-listen" onclick="toggleContinuousListen()">
+      <span>🎧 Auto-Listen</span>
+      <span id="listenBadgeStatus" style="font-size:0.65rem; color:#94a3b8;">OFF</span>
     </button>
-    <button class="btn-toggle" style="max-width: 75px;" onclick="speakCurrentTranslation()">
-      🔊 Play
+    <button id="speakBtn" class="btn-speak" onclick="triggerManualSpeak()">
+      🎙️ Tap to Speak
     </button>
   </div>
 
-  <!-- Conversation Review Section -->
+  <!-- Review Stream -->
   <div class="history-header">
-    <span class="history-title">Conversation Review</span>
+    <span class="history-title">Conversation Stream</span>
     <button class="btn-clear" onclick="clearHistory()">Clear</button>
   </div>
   <div id="historyList" class="history-list"></div>
 </div>
 
 <script>
-  // --- APP STATE & LOCAL STORAGE ---
-  let isCarMode = false;
-  let currentLang = 'en-to-th';
-  let outputMode = 'both';
-  let peer = null;
-  let conn = null;
-  let recognition = null;
-  let isListening = false;
-  let currentTranslationData = null;
-  let geminiKey = localStorage.getItem('BREW_GEMINI_KEY') || '';
-
-  // Persistent History & Cache
-  let conversationHistory = JSON.parse(localStorage.getItem('BREW_HISTORY') || '[]');
-  const LOCAL_CACHE = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
-
-  const SEED_CACHE = {
+  // --- IN-MEMORY TURBO RAM CACHE & SEED DATA ---
+  const RAM_CACHE = new Map();
+  const SEED_DATA = {
     "not spicy": {
       translatedText: "ไม่เผ็ดนะ / ไม่เผ็ดครับ",
       enSoundsLike: "MY PET na / MY PET krup (Falling - Low)",
@@ -230,9 +245,34 @@
       enSoundsLike: "LEE-OW KWA dtrong-NEE loey (High - Rising - High - Mid)",
       thSoundsLike: "เทิร์น ไรท์ เฮียร์",
       toneTip: "Add 'loey' at the end for emphasis ('right here!')."
+    },
+    "เช็คบิลด้วยครับ": {
+      translatedText: "Can I have the bill, please?",
+      enSoundsLike: "CHECK-BIN duay krup",
+      thSoundsLike: "แคน ไอ แฮฟ เดอะ บิล พลีส",
+      toneTip: "Natural phrasing in English."
     }
   };
-  Object.assign(LOCAL_CACHE, SEED_CACHE);
+
+  Object.entries(SEED_DATA).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
+  const storedCache = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
+  Object.entries(storedCache).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
+
+  // --- STATE ---
+  let isCarGain = false;
+  let isListeningMode = false;
+  let isRecognitionRunning = false;
+  let outputMode = 'both';
+  let peer = null;
+  let conn = null;
+  let recognition = null;
+  let currentTranslationData = null;
+  let geminiKey = localStorage.getItem('BREW_GEMINI_KEY') || '';
+  let conversationHistory = JSON.parse(localStorage.getItem('BREW_HISTORY') || '[]');
+
+  // Multi-Speaker Tracking State
+  let lastThaiSpeaker = 'speaker-th2'; // Toggles between th1 and th2
+  let lastSpeechTimestamp = 0;
 
   // Initialize UI
   if (!geminiKey) {
@@ -264,104 +304,174 @@
     document.getElementById('modeText').className = 'mode-btn ' + (mode === 'text' ? 'selected' : '');
   }
 
-  function toggleCarMode() {
-    isCarMode = !isCarMode;
-    const btn = document.getElementById('carModeBtn');
-    const status = document.getElementById('carModeStatus');
-    if (isCarMode) {
+  function toggleCarGain() {
+    isCarGain = !isCarGain;
+    const btn = document.getElementById('carGainBtn');
+    const status = document.getElementById('gainStatus');
+    if (isCarGain) {
+      btn.classList.add('gain-active');
+      status.innerText = "+12dB BOOST";
+    } else {
+      btn.classList.remove('gain-active');
+      status.innerText = "OFF";
+    }
+  }
+
+  // --- 1/3 LISTEN BUTTON (CONTINUOUS AMBIENT MODE) ---
+  function toggleContinuousListen() {
+    isListeningMode = !isListeningMode;
+    const btn = document.getElementById('listenToggleBtn');
+    const status = document.getElementById('listenBadgeStatus');
+
+    if (isListeningMode) {
       btn.classList.add('active');
-      status.innerText = "HIGH GAIN";
+      status.innerText = "ACTIVE";
+      status.style.color = "var(--success)";
+      startRecognizer();
     } else {
       btn.classList.remove('active');
       status.innerText = "OFF";
+      status.style.color = "#94a3b8";
+      stopRecognizer();
     }
-    setupSpeechRecognition();
   }
 
-  function switchLanguage() {
-    currentLang = currentLang === 'en-to-th' ? 'th-to-en' : 'en-to-th';
-    document.getElementById('langToggleBtn').innerText = currentLang === 'en-to-th' ? '⇄ EN ➔ TH Spoken' : '⇄ TH ➔ EN Spoken';
-    document.getElementById('inputText').placeholder = currentLang === 'en-to-th' ? 'Speak or type English...' : 'พูดภาษาไทย หรือพิมพ์ที่นี่...';
-    setupSpeechRecognition();
+  // --- 2/3 SPEAK BUTTON (MANUAL / PRIORITY PUSH-TO-SPEAK) ---
+  function triggerManualSpeak() {
+    if (isRecognitionRunning && !isListeningMode) {
+      stopRecognizer();
+      return;
+    }
+    startRecognizer();
   }
 
-  // --- SPEECH RECOGNITION ---
-  function setupSpeechRecognition() {
+  // --- SPEECH RECOGNITION ENGINE ---
+  function initSpeechEngine() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) return null;
 
-    if (recognition) recognition.abort();
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = currentLang === 'en-to-th' ? 'en-US' : 'th-TH';
+    const rec = new SpeechRecognition();
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = 'th-TH'; // Handles Thai and natural English code-switching
 
-    recognition.onstart = () => {
-      isListening = true;
-      document.getElementById('micBtn').classList.add('listening');
-      document.getElementById('micBtn').innerText = "🎙️ Listening...";
+    rec.onstart = () => {
+      isRecognitionRunning = true;
+      const speakBtn = document.getElementById('speakBtn');
+      speakBtn.classList.add('listening');
+      speakBtn.innerText = "🎙️ Listening...";
     };
 
-    recognition.onresult = (event) => {
-      const text = event.results[0][0].transcript;
-      document.getElementById('inputText').value = text;
-      executeTranslation(text);
+    rec.onresult = (event) => {
+      const results = event.results;
+      const lastTranscript = results[results.length - 1][0].transcript.trim();
+      if (lastTranscript) {
+        document.getElementById('inputText').value = lastTranscript;
+        executeAutoTranslation(lastTranscript);
+      }
     };
 
-    recognition.onend = () => {
-      isListening = false;
-      document.getElementById('micBtn').classList.remove('listening');
-      document.getElementById('micBtn').innerText = "🎙️ Tap to Speak";
+    rec.onerror = (e) => {
+      console.warn("Speech recognition notice:", e.error);
     };
+
+    rec.onend = () => {
+      isRecognitionRunning = false;
+      const speakBtn = document.getElementById('speakBtn');
+      speakBtn.classList.remove('listening');
+      speakBtn.innerText = "🎙️ Tap to Speak";
+
+      // If continuous mode is ON, instantly restart
+      if (isListeningMode) {
+        setTimeout(() => {
+          try { rec.start(); } catch(e){}
+        }, 200);
+      }
+    };
+
+    return rec;
   }
 
-  function toggleSpeech() {
-    if (!recognition) setupSpeechRecognition();
-    if (isListening) {
+  function startRecognizer() {
+    if (!recognition) recognition = initSpeechEngine();
+    if (recognition && !isRecognitionRunning) {
+      try { recognition.start(); } catch (e) {}
+    }
+  }
+
+  function stopRecognizer() {
+    if (recognition && isRecognitionRunning) {
       recognition.stop();
-    } else {
-      recognition.start();
     }
   }
 
   function handleEnter(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      executeTranslation(e.target.value);
+      executeAutoTranslation(e.target.value);
     }
   }
 
-  // --- TRANSLATION CORE (GEMINI 3.6 FLASH) ---
-  async function executeTranslation(text) {
+  // --- MULTI-SPEAKER DETERMINATION & TRANSLATION ENGINE ---
+  async function executeAutoTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
 
+    const now = Date.now();
+    const timeDelta = now - lastSpeechTimestamp;
+    lastSpeechTimestamp = now;
+
+    const hasThaiScript = /[\u0E00-\u0E7F]/.test(cleanText);
+    let speakerRole = 'speaker-en';
+    let speakerLabel = '🧔 English Speaker';
+    let direction = 'English to Spoken Thai';
+    let targetLangCode = 'th-TH';
+
+    if (hasThaiScript) {
+      // Differentiate between Thai Speaker 1 & 2 based on conversational pause gap
+      if (timeDelta > 2000) {
+        lastThaiSpeaker = (lastThaiSpeaker === 'speaker-th1') ? 'speaker-th2' : 'speaker-th1';
+      }
+      speakerRole = lastThaiSpeaker;
+      speakerLabel = (speakerRole === 'speaker-th1') ? '👩 Thai Speaker 1' : '👱 Thai Speaker 2';
+      direction = 'Thai to Conversational English';
+      targetLangCode = 'en-US';
+    }
+
+    const mainCard = document.getElementById('mainCard');
+    mainCard.className = `card ${speakerRole}`;
+
     const cacheKey = cleanText.toLowerCase();
 
-    if (LOCAL_CACHE[cacheKey]) {
-      processResult(cleanText, LOCAL_CACHE[cacheKey], 'user');
+    // Instant RAM response
+    if (RAM_CACHE.has(cacheKey)) {
+      processResult(cleanText, RAM_CACHE.get(cacheKey), speakerRole, speakerLabel, targetLangCode);
       return;
     }
 
     if (!geminiKey) {
-      alert('Please tap the 🔑 icon and enter your Gemini API Key.');
+      alert('Please enter your Gemini API Key using the 🔑 button.');
       return;
     }
 
+    // Render loading state
     document.getElementById('resultCard').style.display = 'flex';
-    document.getElementById('translatedText').innerHTML = `<span class="loading-pulse">Translating natural Thai...</span>`;
+    document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
+    
+    const targetEl = document.getElementById('translatedText');
+    targetEl.className = `target-text ${speakerRole === 'speaker-th1' ? 'en-out' : speakerRole === 'speaker-th2' ? 'en-out2' : 'th-out'}`;
+    targetEl.innerHTML = `<span class="loading-pulse">Translating conversational flow...</span>`;
 
     const systemPrompt = `You are "Brew Translate", an ultra-natural conversational Thai-English translator.
-Avoid robotic formal written Thai. Use authentic spoken Thai particles (นะ, ครับ/ค่ะ, อ่ะ, ป่ะ, เลย).
+Translate direction: ${direction}.
+Translate naturally with genuine spoken slang and particles (e.g. นะ, ครับ/ค่ะ, อ่ะ, ป่ะ, เลย).
 
-Translate direction: ${currentLang === 'en-to-th' ? 'English to Spoken Thai' : 'Thai to Conversational English'}.
-
-Output valid JSON ONLY in this structure:
+Output valid JSON ONLY:
 {
   "translatedText": "Natural spoken translation",
-  "enSoundsLike": "Intuitive phonetic pronunciation for English speakers with capitalized STRESSED syllables and tones (e.g. 'MY-PET na (Falling-Low)')",
-  "thSoundsLike": "คำอ่านภาษาไทย for Thai speakers",
-  "toneTip": "1 concise sentence on natural tone or slang nuance"
+  "enSoundsLike": "Intuitive phonetic guide with CAPITALIZED stressed syllables",
+  "thSoundsLike": "คำอ่านภาษาไทย for Thai native pronunciation",
+  "toneTip": "1 brief sentence on tone or nuance"
 }`;
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiKey}`;
@@ -373,24 +483,24 @@ Output valid JSON ONLY in this structure:
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: cleanText }] }],
           systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
+          generationConfig: { responseMimeType: "application/json", temperature: 0.15 }
         })
       });
 
       const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error.message || 'API Error');
-      }
+      if (data.error) throw new Error(data.error.message || 'API Error');
 
       let rawText = data.candidates[0].content.parts[0].text;
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
-      LOCAL_CACHE[cacheKey] = result;
-      localStorage.setItem('BREW_CACHE', JSON.stringify(LOCAL_CACHE));
+      // Save to memory RAM and localStorage
+      RAM_CACHE.set(cacheKey, result);
+      const cacheObj = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
+      cacheObj[cacheKey] = result;
+      localStorage.setItem('BREW_CACHE', JSON.stringify(cacheObj));
 
-      processResult(cleanText, result, 'user');
+      processResult(cleanText, result, speakerRole, speakerLabel, targetLangCode);
 
     } catch (err) {
       console.error(err);
@@ -398,47 +508,76 @@ Output valid JSON ONLY in this structure:
     }
   }
 
-  function processResult(original, data, sender) {
-    currentTranslationData = data;
+  function processResult(original, data, speakerRole, speakerLabel, targetLangCode) {
+    currentTranslationData = { data, targetLangCode };
 
     if (outputMode !== 'voice') {
-      renderResult(data);
+      renderResult(data, speakerRole, speakerLabel);
     }
 
     if (outputMode === 'both' || outputMode === 'voice') {
-      speakText(data.translatedText, currentLang === 'en-to-th' ? 'th-TH' : 'en-US');
+      speakVoiceActor(data.translatedText, targetLangCode, speakerRole);
     }
 
     logToHistory({
-      sender: sender,
+      speakerRole: speakerRole,
+      speakerLabel: speakerLabel,
       original: original,
       translation: data.translatedText,
-      phonetic: currentLang === 'en-to-th' ? data.enSoundsLike : data.thSoundsLike,
-      lang: currentLang === 'en-to-th' ? 'th-TH' : 'en-US',
+      phonetic: speakerRole === 'speaker-en' ? data.enSoundsLike : data.thSoundsLike,
+      lang: targetLangCode,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     });
 
-    if (sender === 'user') {
-      broadcastToPartner({
-        original: original,
-        data: data,
-        lang: currentLang
-      });
+    if (conn && conn.open) {
+      conn.send({ original, data, speakerRole, speakerLabel, targetLangCode });
     }
   }
 
-  function renderResult(data) {
+  function renderResult(data, speakerRole, speakerLabel) {
     document.getElementById('resultCard').style.display = 'flex';
-    document.getElementById('translatedText').innerText = data.translatedText;
+    document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
+    
+    const targetEl = document.getElementById('translatedText');
+    targetEl.className = `target-text ${speakerRole === 'speaker-th1' ? 'en-out' : speakerRole === 'speaker-th2' ? 'en-out2' : 'th-out'}`;
+    targetEl.innerText = data.translatedText;
+    
     document.getElementById('enSoundsLike').innerText = data.enSoundsLike;
     document.getElementById('thSoundsLike').innerText = data.thSoundsLike;
     document.getElementById('toneTip').innerText = data.toneTip;
   }
 
-  // --- CONVERSATION HISTORY LOGGING ---
+  // --- DUAL VOICE ACTORS (TEXT TO SPEECH) ---
+  function speakVoiceActor(text, langCode, speakerRole) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langCode;
+    utterance.rate = 0.95;
+
+    // Pitch variation so Thai Speaker 1 and Thai Speaker 2 sound slightly distinct when translating to English
+    if (speakerRole === 'speaker-th1') {
+      utterance.pitch = 1.15;
+    } else if (speakerRole === 'speaker-th2') {
+      utterance.pitch = 0.90;
+    } else {
+      utterance.pitch = 1.0;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function speakCurrentTranslation() {
+    if (currentTranslationData) {
+      speakVoiceActor(currentTranslationData.data.translatedText, currentTranslationData.targetLangCode, 'speaker-en');
+    }
+  }
+
+  // --- STREAM LOGGING & COLOR SEPARATION ---
   function logToHistory(entry) {
     conversationHistory.unshift(entry);
-    if (conversationHistory.length > 50) conversationHistory.pop();
+    if (conversationHistory.length > 60) conversationHistory.pop();
     localStorage.setItem('BREW_HISTORY', JSON.stringify(conversationHistory));
     renderHistory();
   }
@@ -447,17 +586,18 @@ Output valid JSON ONLY in this structure:
     const list = document.getElementById('historyList');
     list.innerHTML = '';
     conversationHistory.forEach((item) => {
+      const tagClass = item.speakerRole.replace('speaker-', '');
       const bubble = document.createElement('div');
-      bubble.className = `history-bubble ${item.sender}`;
+      bubble.className = `history-bubble ${item.speakerRole}`;
       bubble.innerHTML = `
-        <div class="bubble-meta">
-          <span>${item.sender === 'user' ? '🧔 You' : '👩 Partner'}</span>
+        <div class="bubble-meta ${tagClass}">
+          <span>${item.speakerLabel}</span>
           <span>${item.time}</span>
         </div>
         <div class="bubble-orig">"${item.original}"</div>
         <div class="bubble-trans">${item.translation}</div>
         <div class="bubble-phonetic">🗣️ ${item.phonetic}</div>
-        <button class="bubble-replay" onclick="speakText('${item.translation.replace(/'/g, "\\'")}', '${item.lang}')">🔊</button>
+        <button class="bubble-replay" onclick="speakVoiceActor('${item.translation.replace(/'/g, "\\'")}', '${item.lang}', '${item.speakerRole}')">🔊</button>
       `;
       list.appendChild(bubble);
     });
@@ -469,23 +609,18 @@ Output valid JSON ONLY in this structure:
     renderHistory();
   }
 
-  // --- PARTNER WALKIE-TALKIE (WEBRTC) ---
+  // --- WEBRTC WALKIE-TALKIE ---
   function connectToPartner() {
     const roomId = document.getElementById('roomIdInput').value.trim().toLowerCase();
     if (!roomId) return;
 
     peer = new Peer(roomId + '-host');
-
-    peer.on('open', () => {
-      updateSyncStatus(true, `Room: ${roomId.toUpperCase()}`);
-    });
-
+    peer.on('open', () => updateSyncStatus(true, `Room: ${roomId.toUpperCase()}`));
     peer.on('error', () => {
       peer = new Peer();
       conn = peer.connect(roomId + '-host');
       setupConnection();
     });
-
     peer.on('connection', (c) => {
       conn = c;
       setupConnection();
@@ -495,39 +630,14 @@ Output valid JSON ONLY in this structure:
   function setupConnection() {
     updateSyncStatus(true, "Paired!");
     conn.on('data', (payload) => {
-      currentLang = payload.lang;
-      processResult(payload.original, payload.data, 'partner');
+      processResult(payload.original, payload.data, payload.speakerRole, payload.speakerLabel, payload.targetLangCode);
     });
-  }
-
-  function broadcastToPartner(payload) {
-    if (conn && conn.open) {
-      conn.send(payload);
-    }
   }
 
   function updateSyncStatus(connected, text) {
     document.getElementById('syncDot').className = 'status-dot ' + (connected ? 'active' : '');
     document.getElementById('syncText').innerText = text;
   }
-
-  // --- TEXT TO SPEECH ---
-  function speakText(text, lang) {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
-    utterance.rate = 0.95;
-    window.speechSynthesis.speak(utterance);
-  }
-
-  function speakCurrentTranslation() {
-    if (currentTranslationData) {
-      speakText(currentTranslationData.translatedText, currentLang === 'en-to-th' ? 'th-TH' : 'en-US');
-    }
-  }
-
-  setupSpeechRecognition();
 </script>
 </body>
 </html>
