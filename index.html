@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Brew Translate</title>
-  <!-- PeerJS for Direct Phone-to-Phone Walkie-Talkie -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     :root {
@@ -12,7 +11,6 @@
       --card-bg: #1e293b;
       --card-sub: #0f172a;
       --accent: #f59e0b;
-      --accent-glow: rgba(245, 158, 11, 0.25);
       --text: #f8fafc;
       --text-dim: #94a3b8;
       --success: #10b981;
@@ -50,17 +48,7 @@
       font-size: 0.75rem; font-weight: 700; border-radius: 8px; cursor: pointer; text-align: center;
       transition: all 0.2s;
     }
-    .btn-lang.active { background: var(--accent); color: #0b0f19; box-shadow: 0 0 8px var(--accent-glow); }
-
-    /* Top Controls */
-    .toggles { display: flex; gap: 6px; }
-    .btn-toggle {
-      flex: 1; padding: 8px 6px; background: var(--card-bg); border: 1px solid #334155;
-      color: var(--text-dim); border-radius: 10px; font-size: 0.75rem; font-weight: 700;
-      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
-      transition: all 0.2s ease;
-    }
-    .btn-toggle.gain-active { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: var(--success); }
+    .btn-lang.active { background: var(--accent); color: #0b0f19; }
 
     /* Output Mode Selector */
     .output-mode-container { display: flex; background: #0f172a; border-radius: 10px; border: 1px solid #334155; padding: 2px; }
@@ -110,17 +98,13 @@
       flex: 1; padding: 14px 6px; background: #1e293b; border: 1px solid #334155;
       border-radius: var(--radius); color: var(--text-dim); font-size: 0.82rem; font-weight: 800;
       cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-      transition: all 0.2s;
     }
-    .btn-listen.active { 
-      background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: var(--success); 
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
-    }
+    .btn-listen.active { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: var(--success); }
 
     .btn-speak {
       flex: 2; padding: 14px; background: var(--accent); border: none; border-radius: var(--radius);
       color: #0b0f19; font-size: 1.05rem; font-weight: 800; cursor: pointer; display: flex;
-      align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
+      align-items: center; justify-content: center; gap: 8px;
     }
     .btn-speak.listening { background: var(--error); color: white; animation: pulse 1.2s infinite; }
 
@@ -146,7 +130,6 @@
     .bubble-orig { color: #cbd5e1; font-style: italic; }
     .bubble-trans { font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-top: 2px; }
     .bubble-phonetic { font-size: 0.8rem; color: #a5f3fc; }
-    .bubble-replay { position: absolute; right: 8px; bottom: 8px; background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; }
 
     @keyframes pulse { 0% { opacity: 1; } 100% { opacity: 0.5; } }
   </style>
@@ -154,7 +137,6 @@
 <body>
 
 <div class="app-container">
-  <!-- Header -->
   <div class="header">
     <div class="brand">⚡ Brew Translate</div>
     <div class="header-actions">
@@ -166,44 +148,29 @@
     </div>
   </div>
 
-  <!-- API Key Bar -->
   <div id="apiKeySection" class="api-key-bar" style="display: none;">
     <input type="password" id="geminiApiKey" placeholder="Paste Gemini API Key here..." />
     <button onclick="saveApiKey()">Save</button>
   </div>
 
-  <!-- Language Selection Bar -->
   <div class="lang-mode-bar">
     <button id="langBtnEn" class="btn-lang active" onclick="setLanguageMode('en-to-th')">⇄ EN ➔ TH</button>
     <button id="langBtnTh" class="btn-lang" onclick="setLanguageMode('th-to-en')">⇄ TH ➔ EN</button>
     <button id="langBtnAuto" class="btn-lang" onclick="setLanguageMode('auto')">✨ Auto Detect</button>
   </div>
 
-  <!-- Gain & Replay Controls -->
-  <div class="toggles">
-    <button id="carGainBtn" class="btn-toggle" onclick="toggleCarGain()">
-      🚗 Room Gain: <span id="gainStatus">OFF</span>
-    </button>
-    <button id="replayLastBtn" class="btn-toggle" onclick="speakCurrentTranslation()">
-      🔊 Replay Last
-    </button>
-  </div>
-
-  <!-- Output Modes -->
-  <div class="output-mode-container">
+  <div class="output-mode-container" style="margin-top: 4px;">
     <button id="modeBoth" class="mode-btn selected" onclick="setOutputMode('both')">🔊 + 💬 Both</button>
     <button id="modeVoice" class="mode-btn" onclick="setOutputMode('voice')">🔊 Voice Only</button>
     <button id="modeText" class="mode-btn" onclick="setOutputMode('text')">💬 Text Only</button>
   </div>
 
-  <!-- Room Pairing Bar -->
   <div class="room-bar">
     <span style="font-size:0.75rem; color:var(--text-dim);">Room:</span>
     <input type="text" id="roomIdInput" placeholder="e.g. BREW88" />
     <button onclick="connectToPartner()">Pair</button>
   </div>
 
-  <!-- Main Card -->
   <div id="mainCard" class="card">
     <textarea id="inputText" class="input-area" placeholder="Speak or type English..." onkeydown="handleEnter(event)"></textarea>
     
@@ -225,7 +192,6 @@
     </div>
   </div>
 
-  <!-- Split Mic Bar: 1/3 Listen | 2/3 Speak -->
   <div class="mic-bar">
     <button id="listenToggleBtn" class="btn-listen" onclick="toggleContinuousListen()">
       <span>🎧 Auto-Listen</span>
@@ -236,7 +202,6 @@
     </button>
   </div>
 
-  <!-- Conversation History -->
   <div class="history-header">
     <span class="history-title">Conversation Stream</span>
     <button class="btn-clear" onclick="clearHistory()">Clear</button>
@@ -245,64 +210,21 @@
 </div>
 
 <script>
-  // --- HIGH-SPEED IN-MEMORY RAM CACHE ---
-  const RAM_CACHE = new Map();
-  const SEED_DATA = {
-    "not spicy": {
-      translatedText: "ไม่เผ็ดนะ / ไม่เผ็ดครับ",
-      enSoundsLike: "MY PET na / MY PET krup (Falling - Low)",
-      thSoundsLike: "น็อต สไปซี่",
-      toneTip: "Say 'MY' with falling pitch; soft 'p' sound."
-    },
-    "where are you going": {
-      translatedText: "ไปไหนอ่ะ / ไปไหนมา",
-      enSoundsLike: "PAI-NAI-a? / PAI-NAI-mah? (Mid - Rising)",
-      thSoundsLike: "แวร์ อาร์ ยู โกอิ้ง",
-      toneTip: "Casual street Thai drops formal pronouns."
-    },
-    "turn right here": {
-      translatedText: "เลี้ยวขวาตรงนี้เลยครับ",
-      enSoundsLike: "LEE-OW KWA dtrong-NEE loey (High - Rising - High - Mid)",
-      thSoundsLike: "เทิร์น ไรท์ เฮียร์",
-      toneTip: "Add 'loey' at the end for emphasis ('right here!')."
-    },
-    "เช็คบิลด้วยครับ": {
-      translatedText: "Can I have the bill, please?",
-      enSoundsLike: "CHECK-BIN duay krup",
-      thSoundsLike: "แคน ไอ แฮฟ เดอะ บิล พลีส",
-      toneTip: "Natural phrasing in English."
-    }
-  };
-
-  Object.entries(SEED_DATA).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
-  const storedCache = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
-  Object.entries(storedCache).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
-
   // --- STATE ---
   let langMode = 'en-to-th';
-  let isCarGain = false;
   let isAutoListenEngaged = false;
   let isHardwareRunning = false;
   let outputMode = 'both';
   let peer = null;
   let conn = null;
   let recognition = null;
-  let audioStream = null;
-  let audioCtx = null;
-  let gainNode = null;
-  let currentTranslationData = null;
   let geminiKey = localStorage.getItem('BREW_GEMINI_KEY') || '';
   let conversationHistory = JSON.parse(localStorage.getItem('BREW_HISTORY') || '[]');
-
-  // 5-Minute Inactivity Watchdog
-  const INACTIVITY_LIMIT_MS = 5 * 60 * 1000;
-  let inactivityTimer = null;
-
-  // Speaker Alternation
+  
   let lastThaiSpeaker = 'speaker-th2';
   let lastSpeechTimestamp = 0;
 
-  // UI Setup
+  // Initialize UI
   if (!geminiKey) {
     document.getElementById('apiKeySection').style.display = 'flex';
   } else {
@@ -325,7 +247,6 @@
     }
   }
 
-  // --- LANGUAGE CONTROLS ---
   function setLanguageMode(mode) {
     langMode = mode;
     document.getElementById('langBtnEn').className = 'btn-lang ' + (mode === 'en-to-th' ? 'active' : '');
@@ -335,17 +256,13 @@
     const inputArea = document.getElementById('inputText');
     if (mode === 'en-to-th') inputArea.placeholder = "Speak or type English...";
     else if (mode === 'th-to-en') inputArea.placeholder = "พูดภาษาไทย หรือพิมพ์ที่นี่...";
-    else inputArea.placeholder = "Auto-detecting English / Thai conversation...";
-
-    if (recognition) {
-      recognition.lang = getSelectedRecLang();
-    }
+    else inputArea.placeholder = "Auto-detecting conversation...";
   }
 
   function getSelectedRecLang() {
     if (langMode === 'en-to-th') return 'en-US';
     if (langMode === 'th-to-en') return 'th-TH';
-    return 'th-TH';
+    return 'th-TH'; // Auto detects best on TH baseline
   }
 
   function setOutputMode(mode) {
@@ -355,120 +272,17 @@
     document.getElementById('modeText').className = 'mode-btn ' + (mode === 'text' ? 'selected' : '');
   }
 
-  // --- HARDWARE AUDIO GAIN FILTER ---
-  async function toggleCarGain() {
-    isCarGain = !isCarGain;
-    const btn = document.getElementById('carGainBtn');
-    const status = document.getElementById('gainStatus');
-    if (isCarGain) {
-      btn.classList.add('gain-active');
-      status.innerText = "+12dB BOOST";
-      if (gainNode) gainNode.gain.value = 3.98; // ~+12dB voltage multiplier
-    } else {
-      btn.classList.remove('gain-active');
-      status.innerText = "OFF";
-      if (gainNode) gainNode.gain.value = 1.0;
-    }
-  }
-
-  function resetInactivityTimer() {
-    if (inactivityTimer) clearTimeout(inactivityTimer);
-    if (isAutoListenEngaged) {
-      inactivityTimer = setTimeout(() => {
-        stopAutoListenMode();
-      }, INACTIVITY_LIMIT_MS);
-    }
-  }
-
-  // --- SILENT HARDWARE AUDIO LOCK ---
-  async function lockMicStream() {
-    try {
-      if (!audioStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        audioStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } 
-        });
-
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (AudioContext && !audioCtx) {
-          audioCtx = new AudioContext();
-          const source = audioCtx.createMediaStreamSource(audioStream);
-          gainNode = audioCtx.createGain();
-          gainNode.gain.value = isCarGain ? 3.98 : 1.0;
-          source.connect(gainNode);
-        }
-      }
-    } catch(e) {
-      console.warn("Audio hardware stream notice:", e);
-    }
-  }
-
-  function unlockMicStream() {
-    if (audioStream) {
-      audioStream.getTracks().forEach(track => track.stop());
-      audioStream = null;
-    }
-    if (audioCtx) {
-      audioCtx.close();
-      audioCtx = null;
-      gainNode = null;
-    }
-  }
-
-  // --- 1/3 AUTO-LISTEN BUTTON ---
-  async function toggleContinuousListen() {
-    isAutoListenEngaged = !isAutoListenEngaged;
-    const listenBtn = document.getElementById('listenToggleBtn');
-    const badge = document.getElementById('listenBadgeStatus');
-
-    if (isAutoListenEngaged) {
-      await lockMicStream();
-      listenBtn.classList.add('active');
-      badge.innerText = "5M ON";
-      badge.style.color = "var(--success)";
-      resetInactivityTimer();
-      startSpeechHardware();
-    } else {
-      stopAutoListenMode();
-    }
-  }
-
-  function stopAutoListenMode() {
-    isAutoListenEngaged = false;
-    if (inactivityTimer) clearTimeout(inactivityTimer);
-    unlockMicStream();
-
-    const listenBtn = document.getElementById('listenToggleBtn');
-    const badge = document.getElementById('listenBadgeStatus');
-    listenBtn.classList.remove('active');
-    badge.innerText = "OFF";
-    badge.style.color = "#94a3b8";
-
-    if (recognition && isHardwareRunning) {
-      recognition.stop();
-    }
-  }
-
-  // --- 2/3 MANUAL SPEAK BUTTON ---
-  async function triggerManualSpeak() {
-    if (isAutoListenEngaged) return;
-
-    await lockMicStream();
-    if (isHardwareRunning) {
-      if (recognition) recognition.stop();
-    } else {
-      startSpeechHardware();
-    }
-  }
-
-  // --- CONTINUOUS RECOGNITION ENGINE ---
+  // --- SAFE SPEECH RECOGNITION (NATIVE ONLY) ---
   function initSpeechEngine() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return null;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome.");
+      return null;
+    }
 
     const rec = new SpeechRecognition();
     rec.continuous = true;
     rec.interimResults = false;
-    rec.lang = getSelectedRecLang();
 
     rec.onstart = () => {
       isHardwareRunning = true;
@@ -480,7 +294,6 @@
     };
 
     rec.onresult = (event) => {
-      resetInactivityTimer();
       const results = event.results;
       const lastTranscript = results[results.length - 1][0].transcript.trim();
       if (lastTranscript) {
@@ -490,36 +303,62 @@
     };
 
     rec.onerror = (e) => {
-      if (e.error === 'no-speech') return;
-      console.warn("Speech recognition notice:", e.error);
+      // Do nothing on silence error to prevent freezing
     };
 
     rec.onend = () => {
       isHardwareRunning = false;
-      if (!isAutoListenEngaged) {
-        const speakBtn = document.getElementById('speakBtn');
-        speakBtn.classList.remove('listening');
-        speakBtn.innerText = "🎙️ Tap to Speak";
-        unlockMicStream();
-      }
+      const speakBtn = document.getElementById('speakBtn');
+      speakBtn.classList.remove('listening');
+      speakBtn.innerText = "🎙️ Tap to Speak";
 
+      // If Auto-Listen is ON, safely attempt to restart
       if (isAutoListenEngaged) {
         setTimeout(() => {
           if (isAutoListenEngaged && !isHardwareRunning) {
             try { rec.start(); } catch(err){}
           }
-        }, 120);
+        }, 300);
       }
     };
 
     return rec;
   }
 
-  function startSpeechHardware() {
+  function toggleContinuousListen() {
+    isAutoListenEngaged = !isAutoListenEngaged;
+    const listenBtn = document.getElementById('listenToggleBtn');
+    const badge = document.getElementById('listenBadgeStatus');
+
+    if (isAutoListenEngaged) {
+      listenBtn.classList.add('active');
+      badge.innerText = "ACTIVE";
+      badge.style.color = "var(--success)";
+      if (!recognition) recognition = initSpeechEngine();
+      recognition.lang = getSelectedRecLang();
+      if (!isHardwareRunning) {
+        try { recognition.start(); } catch(e){}
+      }
+    } else {
+      listenBtn.classList.remove('active');
+      badge.innerText = "OFF";
+      badge.style.color = "#94a3b8";
+      if (recognition && isHardwareRunning) {
+        recognition.stop();
+      }
+    }
+  }
+
+  function triggerManualSpeak() {
+    if (isAutoListenEngaged) return; // Ignore if auto is running
+
     if (!recognition) recognition = initSpeechEngine();
     recognition.lang = getSelectedRecLang();
-    if (recognition && !isHardwareRunning) {
-      try { recognition.start(); } catch (e) {}
+
+    if (isHardwareRunning) {
+      recognition.stop();
+    } else {
+      try { recognition.start(); } catch(e){}
     }
   }
 
@@ -530,10 +369,15 @@
     }
   }
 
-  // --- TRANSLATION CORE ---
+  // --- ROCK SOLID TRANSLATION CORE ---
   async function executeTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
+
+    if (!geminiKey) {
+      alert('Please enter your Gemini API Key using the 🔑 button.');
+      return;
+    }
 
     const now = Date.now();
     const timeDelta = now - lastSpeechTimestamp;
@@ -553,45 +397,25 @@
       speakerLabel = (speakerRole === 'speaker-th1') ? '👩 Thai Speaker 1' : '👱 Thai Speaker 2';
       direction = 'Thai to Conversational English';
       targetLangCode = 'en-US';
-    } else {
-      speakerRole = 'speaker-en';
-      speakerLabel = '🧔 English Speaker';
-      direction = 'English to Spoken Thai';
-      targetLangCode = 'th-TH';
     }
 
-    const mainCard = document.getElementById('mainCard');
-    mainCard.className = `card ${speakerRole}`;
-
-    const cacheKey = cleanText.toLowerCase();
-
-    // Instant RAM hit (0ms latency)
-    if (RAM_CACHE.has(cacheKey)) {
-      processResult(cleanText, RAM_CACHE.get(cacheKey), speakerRole, speakerLabel, targetLangCode);
-      return;
-    }
-
-    if (!geminiKey) {
-      alert('Please enter your Gemini API Key using the 🔑 button.');
-      return;
-    }
-
-    // Loading State
+    // UPDATE UI IMMEDIATELY
+    document.getElementById('mainCard').className = `card ${speakerRole}`;
     document.getElementById('resultCard').style.display = 'flex';
     document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
     
     const targetEl = document.getElementById('translatedText');
     targetEl.className = `target-text ${speakerRole === 'speaker-th1' ? 'en-out' : speakerRole === 'speaker-th2' ? 'en-out2' : 'th-out'}`;
-    targetEl.innerHTML = `<span class="loading-pulse">Translating natural conversation...</span>`;
+    targetEl.innerHTML = `<span class="loading-pulse">Translating...</span>`;
 
     const systemPrompt = `You are "Brew Translate", an ultra-natural conversational Thai-English translator.
 Translate direction: ${direction}.
-Translate with authentic spoken Thai particles (นะ, ครับ/ค่ะ, อ่ะ, ป่ะ, เลย) and avoid stiff dictionary phrases.
+Translate with authentic spoken Thai particles (นะ, ครับ/ค่ะ, อ่ะ, ป่ะ, เลย).
 
 Output valid JSON ONLY:
 {
   "translatedText": "Natural spoken translation",
-  "enSoundsLike": "Intuitive phonetic guide with CAPITALIZED stressed syllables (e.g. 'MY-PET na (Falling-Low)')",
+  "enSoundsLike": "Intuitive phonetic guide with CAPITALIZED stressed syllables",
   "thSoundsLike": "คำอ่านภาษาไทย for Thai native pronunciation",
   "toneTip": "1 brief sentence on tone or nuance"
 }`;
@@ -616,89 +440,60 @@ Output valid JSON ONLY:
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
-      // Memory and storage sync
-      RAM_CACHE.set(cacheKey, result);
-      const cacheObj = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
-      cacheObj[cacheKey] = result;
-      localStorage.setItem('BREW_CACHE', JSON.stringify(cacheObj));
+      // GUARANTEE DOM UPDATE
+      targetEl.innerText = result.translatedText;
+      document.getElementById('enSoundsLike').innerText = result.enSoundsLike;
+      document.getElementById('thSoundsLike').innerText = result.thSoundsLike;
+      document.getElementById('toneTip').innerText = result.toneTip;
 
-      processResult(cleanText, result, speakerRole, speakerLabel, targetLangCode);
+      // ATTEMPT AUDIO/SYNC IN ISOLATION SO IT NEVER FREEZES THE UI
+      try {
+        if (outputMode === 'both' || outputMode === 'voice') {
+          speakVoiceActor(result.translatedText, targetLangCode, speakerRole);
+        }
+      } catch (audioErr) { console.warn("Audio skipped:", audioErr); }
+
+      try {
+        logToHistory({
+          speakerRole: speakerRole,
+          speakerLabel: speakerLabel,
+          original: cleanText,
+          translation: result.translatedText,
+          phonetic: speakerRole === 'speaker-en' ? result.enSoundsLike : result.thSoundsLike,
+          lang: targetLangCode,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      } catch (histErr) { console.warn("History skipped:", histErr); }
+
+      try {
+        if (conn && conn.open) {
+          conn.send({ original: cleanText, data: result, speakerRole, speakerLabel, targetLangCode });
+        }
+      } catch (peerErr) { console.warn("Peer Sync skipped:", peerErr); }
 
     } catch (err) {
       console.error(err);
-      document.getElementById('translatedText').innerText = `Error: ${err.message || 'Translation failed'}`;
+      targetEl.innerText = `Error: ${err.message || 'Failed'}`;
     }
-  }
-
-  function processResult(original, data, speakerRole, speakerLabel, targetLangCode) {
-    currentTranslationData = { data, targetLangCode, speakerRole };
-
-    if (outputMode !== 'voice') {
-      renderResult(data, speakerRole, speakerLabel);
-    }
-
-    if (outputMode === 'both' || outputMode === 'voice') {
-      speakVoiceActor(data.translatedText, targetLangCode, speakerRole);
-    }
-
-    logToHistory({
-      speakerRole: speakerRole,
-      speakerLabel: speakerLabel,
-      original: original,
-      translation: data.translatedText,
-      phonetic: speakerRole === 'speaker-en' ? data.enSoundsLike : data.thSoundsLike,
-      lang: targetLangCode,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
-
-    if (conn && conn.open) {
-      conn.send({ original, data, speakerRole, speakerLabel, targetLangCode });
-    }
-  }
-
-  function renderResult(data, speakerRole, speakerLabel) {
-    document.getElementById('resultCard').style.display = 'flex';
-    document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
-    
-    const targetEl = document.getElementById('translatedText');
-    targetEl.className = `target-text ${speakerRole === 'speaker-th1' ? 'en-out' : speakerRole === 'speaker-th2' ? 'en-out2' : 'th-out'}`;
-    targetEl.innerText = data.translatedText;
-    
-    document.getElementById('enSoundsLike').innerText = data.enSoundsLike;
-    document.getElementById('thSoundsLike').innerText = data.thSoundsLike;
-    document.getElementById('toneTip').innerText = data.toneTip;
   }
 
   // --- AUDIO PLAYBACK PROFILES ---
   function speakVoiceActor(text, langCode, speakerRole) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = langCode;
     utterance.rate = 0.95;
-
-    if (speakerRole === 'speaker-th1') {
-      utterance.pitch = 1.15;
-    } else if (speakerRole === 'speaker-th2') {
-      utterance.pitch = 0.90;
-    } else {
-      utterance.pitch = 1.0;
-    }
-
+    if (speakerRole === 'speaker-th1') utterance.pitch = 1.15;
+    else if (speakerRole === 'speaker-th2') utterance.pitch = 0.90;
+    else utterance.pitch = 1.0;
     window.speechSynthesis.speak(utterance);
   }
 
-  function speakCurrentTranslation() {
-    if (currentTranslationData) {
-      speakVoiceActor(currentTranslationData.data.translatedText, currentTranslationData.targetLangCode, currentTranslationData.speakerRole);
-    }
-  }
-
-  // --- CONVERSATION STREAM LOGGING ---
+  // --- LOGGING ---
   function logToHistory(entry) {
     conversationHistory.unshift(entry);
-    if (conversationHistory.length > 60) conversationHistory.pop();
+    if (conversationHistory.length > 50) conversationHistory.pop();
     localStorage.setItem('BREW_HISTORY', JSON.stringify(conversationHistory));
     renderHistory();
   }
@@ -718,7 +513,6 @@ Output valid JSON ONLY:
         <div class="bubble-orig">"${item.original}"</div>
         <div class="bubble-trans">${item.translation}</div>
         <div class="bubble-phonetic">🗣️ ${item.phonetic}</div>
-        <button class="bubble-replay" onclick="speakVoiceActor('${item.translation.replace(/'/g, "\\'")}', '${item.lang}', '${item.speakerRole}')">🔊</button>
       `;
       list.appendChild(bubble);
     });
@@ -730,11 +524,10 @@ Output valid JSON ONLY:
     renderHistory();
   }
 
-  // --- WEBRTC WALKIE-TALKIE ---
+  // --- WEBRTC ---
   function connectToPartner() {
     const roomId = document.getElementById('roomIdInput').value.trim().toLowerCase();
     if (!roomId) return;
-
     peer = new Peer(roomId + '-host');
     peer.on('open', () => updateSyncStatus(true, `Room: ${roomId.toUpperCase()}`));
     peer.on('error', () => {
@@ -751,7 +544,20 @@ Output valid JSON ONLY:
   function setupConnection() {
     updateSyncStatus(true, "Paired!");
     conn.on('data', (payload) => {
-      processResult(payload.original, payload.data, payload.speakerRole, payload.speakerLabel, payload.targetLangCode);
+      // Process received data
+      document.getElementById('mainCard').className = `card ${payload.speakerRole}`;
+      document.getElementById('resultCard').style.display = 'flex';
+      document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${payload.speakerRole.replace('speaker-', '')}">${payload.speakerLabel}</span>`;
+      const targetEl = document.getElementById('translatedText');
+      targetEl.className = `target-text ${payload.speakerRole === 'speaker-th1' ? 'en-out' : payload.speakerRole === 'speaker-th2' ? 'en-out2' : 'th-out'}`;
+      targetEl.innerText = payload.data.translatedText;
+      document.getElementById('enSoundsLike').innerText = payload.data.enSoundsLike;
+      document.getElementById('thSoundsLike').innerText = payload.data.thSoundsLike;
+      document.getElementById('toneTip').innerText = payload.data.toneTip;
+      
+      if (outputMode === 'both' || outputMode === 'voice') {
+        speakVoiceActor(payload.data.translatedText, payload.targetLangCode, payload.speakerRole);
+      }
     });
   }
 
