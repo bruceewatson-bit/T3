@@ -97,12 +97,15 @@
     /* Split 1/3 Listen & 2/3 Speak Mic Bar */
     .mic-bar { display: flex; gap: 8px; align-items: stretch; }
     .btn-listen {
-      flex: 1; padding: 14px 8px; background: #1e293b; border: 1px solid #334155;
-      border-radius: var(--radius); color: var(--text-dim); font-size: 0.85rem; font-weight: 800;
+      flex: 1; padding: 14px 6px; background: #1e293b; border: 1px solid #334155;
+      border-radius: var(--radius); color: var(--text-dim); font-size: 0.82rem; font-weight: 800;
       cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
       transition: all 0.2s;
     }
-    .btn-listen.active { background: rgba(16, 185, 129, 0.25); border-color: var(--success); color: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
+    .btn-listen.active { 
+      background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: var(--success); 
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+    }
 
     .btn-speak {
       flex: 2; padding: 14px; background: var(--accent); border: none; border-radius: var(--radius);
@@ -183,7 +186,7 @@
     <button onclick="connectToPartner()">Pair</button>
   </div>
 
-  <!-- Main Card with Tri-Speaker Styling -->
+  <!-- Main Card -->
   <div id="mainCard" class="card">
     <textarea id="inputText" class="input-area" placeholder="Speak or listen to natural English / Thai conversation..." onkeydown="handleEnter(event)"></textarea>
     
@@ -225,7 +228,7 @@
 </div>
 
 <script>
-  // --- IN-MEMORY TURBO RAM CACHE & SEED DATA ---
+  // --- IN-MEMORY TURBO RAM CACHE ---
   const RAM_CACHE = new Map();
   const SEED_DATA = {
     "not spicy": {
@@ -260,8 +263,8 @@
 
   // --- STATE ---
   let isCarGain = false;
-  let isListeningMode = false;
-  let isRecognitionRunning = false;
+  let isAutoListenEngaged = false;
+  let isHardwareRunning = false;
   let outputMode = 'both';
   let peer = null;
   let conn = null;
@@ -270,8 +273,12 @@
   let geminiKey = localStorage.getItem('BREW_GEMINI_KEY') || '';
   let conversationHistory = JSON.parse(localStorage.getItem('BREW_HISTORY') || '[]');
 
-  // Multi-Speaker Tracking State
-  let lastThaiSpeaker = 'speaker-th2'; // Toggles between th1 and th2
+  // Inactivity Watchdog (5 Minutes = 300,000 ms)
+  const INACTIVITY_LIMIT_MS = 5 * 60 * 1000;
+  let inactivityTimer = null;
+
+  // Speaker Alternation
+  let lastThaiSpeaker = 'speaker-th2';
   let lastSpeechTimestamp = 0;
 
   // Initialize UI
@@ -317,35 +324,66 @@
     }
   }
 
-  // --- 1/3 LISTEN BUTTON (CONTINUOUS AMBIENT MODE) ---
-  function toggleContinuousListen() {
-    isListeningMode = !isListeningMode;
-    const btn = document.getElementById('listenToggleBtn');
-    const status = document.getElementById('listenBadgeStatus');
-
-    if (isListeningMode) {
-      btn.classList.add('active');
-      status.innerText = "ACTIVE";
-      status.style.color = "var(--success)";
-      startRecognizer();
-    } else {
-      btn.classList.remove('active');
-      status.innerText = "OFF";
-      status.style.color = "#94a3b8";
-      stopRecognizer();
+  // --- 5-MINUTE INACTIVITY WATCHDOG ---
+  function resetInactivityTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    if (isAutoListenEngaged) {
+      inactivityTimer = setTimeout(() => {
+        // 5 continuous minutes without sound reached: shutdown gracefully
+        stopAutoListenMode();
+      }, INACTIVITY_LIMIT_MS);
     }
   }
 
-  // --- 2/3 SPEAK BUTTON (MANUAL / PRIORITY PUSH-TO-SPEAK) ---
+  // --- 1/3 AUTO-LISTEN BUTTON TOGGLE ---
+  function toggleContinuousListen() {
+    isAutoListenEngaged = !isAutoListenEngaged;
+    const listenBtn = document.getElementById('listenToggleBtn');
+    const badge = document.getElementById('listenBadgeStatus');
+
+    if (isAutoListenEngaged) {
+      listenBtn.classList.add('active');
+      badge.innerText = "5M ON";
+      badge.style.color = "var(--success)";
+      resetInactivityTimer();
+      startSpeechHardware();
+    } else {
+      stopAutoListenMode();
+    }
+  }
+
+  function stopAutoListenMode() {
+    isAutoListenEngaged = false;
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    const listenBtn = document.getElementById('listenToggleBtn');
+    const badge = document.getElementById('listenBadgeStatus');
+    listenBtn.classList.remove('active');
+    badge.innerText = "OFF";
+    badge.style.color = "#94a3b8";
+
+    if (recognition && isHardwareRunning) {
+      recognition.stop();
+    }
+  }
+
+  // --- 2/3 MANUAL SPEAK BUTTON ---
   function triggerManualSpeak() {
-    if (isRecognitionRunning && !isListeningMode) {
-      stopRecognizer();
+    if (isAutoListenEngaged) {
+      // Already running cleanly in background
+      const speakBtn = document.getElementById('speakBtn');
+      speakBtn.classList.add('listening');
+      setTimeout(() => speakBtn.classList.remove('listening'), 1500);
       return;
     }
-    startRecognizer();
+
+    if (isHardwareRunning) {
+      if (recognition) recognition.stop();
+    } else {
+      startSpeechHardware();
+    }
   }
 
-  // --- SPEECH RECOGNITION ENGINE ---
+  // --- ROBUST HARDWARE SPEECH ENGINE (NO FLICKER / NO NOTIFICATION CHIMES) ---
   function initSpeechEngine() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return null;
@@ -353,16 +391,19 @@
     const rec = new SpeechRecognition();
     rec.continuous = true;
     rec.interimResults = false;
-    rec.lang = 'th-TH'; // Handles Thai and natural English code-switching
+    rec.lang = 'th-TH'; // Code-switches naturally between Thai and English
 
     rec.onstart = () => {
-      isRecognitionRunning = true;
-      const speakBtn = document.getElementById('speakBtn');
-      speakBtn.classList.add('listening');
-      speakBtn.innerText = "🎙️ Listening...";
+      isHardwareRunning = true;
+      if (!isAutoListenEngaged) {
+        const speakBtn = document.getElementById('speakBtn');
+        speakBtn.classList.add('listening');
+        speakBtn.innerText = "🎙️ Listening...";
+      }
     };
 
     rec.onresult = (event) => {
+      resetInactivityTimer(); // Active speech detected: reset 5-min timer
       const results = event.results;
       const lastTranscript = results[results.length - 1][0].transcript.trim();
       if (lastTranscript) {
@@ -372,19 +413,25 @@
     };
 
     rec.onerror = (e) => {
+      // Silence time-out is normal: do not alert or abort
+      if (e.error === 'no-speech') return;
       console.warn("Speech recognition notice:", e.error);
     };
 
     rec.onend = () => {
-      isRecognitionRunning = false;
-      const speakBtn = document.getElementById('speakBtn');
-      speakBtn.classList.remove('listening');
-      speakBtn.innerText = "🎙️ Tap to Speak";
+      isHardwareRunning = false;
+      if (!isAutoListenEngaged) {
+        const speakBtn = document.getElementById('speakBtn');
+        speakBtn.classList.remove('listening');
+        speakBtn.innerText = "🎙️ Tap to Speak";
+      }
 
-      // If continuous mode is ON, instantly restart
-      if (isListeningMode) {
+      // Smooth, silent restart without flashing buttons
+      if (isAutoListenEngaged) {
         setTimeout(() => {
-          try { rec.start(); } catch(e){}
+          if (isAutoListenEngaged && !isHardwareRunning) {
+            try { rec.start(); } catch(err){}
+          }
         }, 200);
       }
     };
@@ -392,16 +439,10 @@
     return rec;
   }
 
-  function startRecognizer() {
+  function startSpeechHardware() {
     if (!recognition) recognition = initSpeechEngine();
-    if (recognition && !isRecognitionRunning) {
+    if (recognition && !isHardwareRunning) {
       try { recognition.start(); } catch (e) {}
-    }
-  }
-
-  function stopRecognizer() {
-    if (recognition && isRecognitionRunning) {
-      recognition.stop();
     }
   }
 
@@ -412,7 +453,7 @@
     }
   }
 
-  // --- MULTI-SPEAKER DETERMINATION & TRANSLATION ENGINE ---
+  // --- TRANSLATION ENGINE & CONVERSATION DETERMINATION ---
   async function executeAutoTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
@@ -428,7 +469,6 @@
     let targetLangCode = 'th-TH';
 
     if (hasThaiScript) {
-      // Differentiate between Thai Speaker 1 & 2 based on conversational pause gap
       if (timeDelta > 2000) {
         lastThaiSpeaker = (lastThaiSpeaker === 'speaker-th1') ? 'speaker-th2' : 'speaker-th1';
       }
@@ -454,7 +494,7 @@
       return;
     }
 
-    // Render loading state
+    // UI Loading
     document.getElementById('resultCard').style.display = 'flex';
     document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
     
@@ -494,7 +534,7 @@ Output valid JSON ONLY:
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
-      // Save to memory RAM and localStorage
+      // Cache locally
       RAM_CACHE.set(cacheKey, result);
       const cacheObj = JSON.parse(localStorage.getItem('BREW_CACHE') || '{}');
       cacheObj[cacheKey] = result;
@@ -509,7 +549,7 @@ Output valid JSON ONLY:
   }
 
   function processResult(original, data, speakerRole, speakerLabel, targetLangCode) {
-    currentTranslationData = { data, targetLangCode };
+    currentTranslationData = { data, targetLangCode, speakerRole };
 
     if (outputMode !== 'voice') {
       renderResult(data, speakerRole, speakerLabel);
@@ -547,7 +587,7 @@ Output valid JSON ONLY:
     document.getElementById('toneTip').innerText = data.toneTip;
   }
 
-  // --- DUAL VOICE ACTORS (TEXT TO SPEECH) ---
+  // --- TEXT TO SPEECH (VOICE ACTOR PITCH PROFILES) ---
   function speakVoiceActor(text, langCode, speakerRole) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -556,7 +596,6 @@ Output valid JSON ONLY:
     utterance.lang = langCode;
     utterance.rate = 0.95;
 
-    // Pitch variation so Thai Speaker 1 and Thai Speaker 2 sound slightly distinct when translating to English
     if (speakerRole === 'speaker-th1') {
       utterance.pitch = 1.15;
     } else if (speakerRole === 'speaker-th2') {
@@ -570,11 +609,11 @@ Output valid JSON ONLY:
 
   function speakCurrentTranslation() {
     if (currentTranslationData) {
-      speakVoiceActor(currentTranslationData.data.translatedText, currentTranslationData.targetLangCode, 'speaker-en');
+      speakVoiceActor(currentTranslationData.data.translatedText, currentTranslationData.targetLangCode, currentTranslationData.speakerRole);
     }
   }
 
-  // --- STREAM LOGGING & COLOR SEPARATION ---
+  // --- HISTORY STREAM ---
   function logToHistory(entry) {
     conversationHistory.unshift(entry);
     if (conversationHistory.length > 60) conversationHistory.pop();
