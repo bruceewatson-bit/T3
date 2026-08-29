@@ -207,6 +207,7 @@
   let isListening = false;
   let currentTranslationData = null;
   let geminiKey = localStorage.getItem('BREW_GEMINI_KEY') || '';
+  let discoveredModel = localStorage.getItem('BREW_DISCOVERED_MODEL') || '';
 
   // Persistent History & Cache
   let conversationHistory = JSON.parse(localStorage.getItem('BREW_HISTORY') || '[]');
@@ -252,6 +253,8 @@
     if (key) {
       geminiKey = key;
       localStorage.setItem('BREW_GEMINI_KEY', key);
+      localStorage.removeItem('BREW_DISCOVERED_MODEL'); // Re-discover for new key
+      discoveredModel = '';
       document.getElementById('apiKeySection').style.display = 'none';
       alert('API Key Saved!');
     }
@@ -331,7 +334,39 @@
     }
   }
 
-  // --- TRANSLATION CORE (AUTO-FALLBACK ENGINE) ---
+  // --- DYNAMIC MODEL RESOLVER ---
+  async function resolveWorkingModel(key) {
+    if (discoveredModel) return discoveredModel;
+
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+      const data = await res.json();
+      
+      if (data.models && Array.isArray(data.models)) {
+        const supported = data.models.filter(m => 
+          m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
+        );
+
+        // Find best model: 2.5 Flash -> 2.0 Flash -> Any Flash -> First supported
+        const pick = supported.find(m => m.name.includes('2.5-flash')) ||
+                     supported.find(m => m.name.includes('2.0-flash')) ||
+                     supported.find(m => m.name.includes('flash')) ||
+                     supported[0];
+
+        if (pick) {
+          discoveredModel = pick.name; // e.g. "models/gemini-2.5-flash"
+          localStorage.setItem('BREW_DISCOVERED_MODEL', discoveredModel);
+          return discoveredModel;
+        }
+      }
+    } catch (e) {
+      console.warn('Model auto-discovery failed, using direct endpoint', e);
+    }
+
+    return 'models/gemini-2.5-flash';
+  }
+
+  // --- TRANSLATION CORE ---
   async function executeTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
@@ -351,12 +386,16 @@
     document.getElementById('resultCard').style.display = 'flex';
     document.getElementById('translatedText').innerHTML = `<span class="loading-pulse">Translating natural Thai...</span>`;
 
-    const systemPrompt = `You are "Brew Translate", an ultra-natural conversational Thai-English translator.
+    const modelName = await resolveWorkingModel(geminiKey);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${geminiKey}`;
+
+    const promptText = `You are "Brew Translate", an ultra-natural conversational Thai-English translator.
 Avoid robotic formal written Thai. Use authentic spoken Thai particles (นะ, ครับ/ค่ะ, อ่ะ, ป่ะ, เลย).
 
 Translate direction: ${currentLang === 'en-to-th' ? 'English to Spoken Thai' : 'Thai to Conversational English'}.
+Input phrase: "${cleanText}"
 
-Output MUST be valid JSON only without markdown formatting:
+Output valid JSON ONLY in this format:
 {
   "translatedText": "Natural spoken translation",
   "enSoundsLike": "Intuitive phonetic pronunciation for English speakers with capitalized STRESSED syllables and tones (e.g. 'MY-PET na (Falling-Low)')",
@@ -364,45 +403,26 @@ Output MUST be valid JSON only without markdown formatting:
   "toneTip": "1 concise sentence on natural tone or slang nuance"
 }`;
 
-    const modelsToTry = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest'];
-    let successfulData = null;
-    let lastErrorMsg = '';
-
-    for (const model of modelsToTry) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: cleanText }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-          })
-        });
-
-        const data = await response.json();
-        if (data.error) {
-          lastErrorMsg = data.error.message;
-          continue;
-        }
-
-        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-          successfulData = data;
-          break;
-        }
-      } catch (err) {
-        lastErrorMsg = err.message;
-      }
-    }
-
-    if (!successfulData) {
-      document.getElementById('translatedText').innerText = `Error: ${lastErrorMsg || 'API request failed'}`;
-      return;
-    }
-
     try {
-      let rawText = successfulData.candidates[0].content.parts[0].text;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        // If cached model failed, clear cache and re-throw
+        localStorage.removeItem('BREW_DISCOVERED_MODEL');
+        discoveredModel = '';
+        throw new Error(data.error.message || 'API Error');
+      }
+
+      let rawText = data.candidates[0].content.parts[0].text;
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
@@ -410,9 +430,10 @@ Output MUST be valid JSON only without markdown formatting:
       localStorage.setItem('BREW_CACHE', JSON.stringify(LOCAL_CACHE));
 
       processResult(cleanText, result, 'user');
-    } catch (parseErr) {
-      console.error(parseErr);
-      document.getElementById('translatedText').innerText = "Translation format error. Try again.";
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById('translatedText').innerText = `Error: ${err.message || 'Translation failed'}`;
     }
   }
 
