@@ -199,8 +199,8 @@
 <script>
   // --- APP STATE & LOCAL STORAGE ---
   let isCarMode = false;
-  let currentLang = 'en-to-th'; // or 'th-to-en'
-  let outputMode = 'both';      // 'both' | 'voice' | 'text'
+  let currentLang = 'en-to-th';
+  let outputMode = 'both';
   let peer = null;
   let conn = null;
   let recognition = null;
@@ -257,7 +257,6 @@
     }
   }
 
-  // --- OUTPUT MODE SWITCHER ---
   function setOutputMode(mode) {
     outputMode = mode;
     document.getElementById('modeBoth').className = 'mode-btn ' + (mode === 'both' ? 'selected' : '');
@@ -332,14 +331,14 @@
     }
   }
 
-  // --- TRANSLATION CORE + GEMINI 2.5 FLASH ---
+  // --- TRANSLATION CORE ---
   async function executeTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
 
     const cacheKey = cleanText.toLowerCase();
 
-    // Instant Cache Match (0ms latency)
+    // Instant Cache Match
     if (LOCAL_CACHE[cacheKey]) {
       processResult(cleanText, LOCAL_CACHE[cacheKey], 'user');
       return;
@@ -359,7 +358,7 @@ Avoid robotic formal written Thai. Use authentic spoken Thai particles (นะ, 
 
 Translate direction: ${currentLang === 'en-to-th' ? 'English to Spoken Thai' : 'Thai to Conversational English'}.
 
-Output MUST be valid JSON:
+Output MUST be valid JSON only without markdown formatting:
 {
   "translatedText": "Natural spoken translation",
   "enSoundsLike": "Intuitive phonetic pronunciation for English speakers with capitalized STRESSED syllables and tones (e.g. 'MY-PET na (Falling-Low)')",
@@ -367,7 +366,7 @@ Output MUST be valid JSON:
   "toneTip": "1 concise sentence on natural tone or slang nuance"
 }`;
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
 
     try {
       const response = await fetch(endpoint, {
@@ -381,7 +380,14 @@ Output MUST be valid JSON:
       });
 
       const data = await response.json();
-      const result = JSON.parse(data.candidates[0].content.parts[0].text);
+
+      if (data.error) {
+        throw new Error(data.error.message || 'API Error');
+      }
+
+      let rawText = data.candidates[0].content.parts[0].text;
+      rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const result = JSON.parse(rawText);
 
       LOCAL_CACHE[cacheKey] = result;
       localStorage.setItem('BREW_CACHE', JSON.stringify(LOCAL_CACHE));
@@ -390,24 +396,21 @@ Output MUST be valid JSON:
 
     } catch (err) {
       console.error(err);
-      document.getElementById('translatedText').innerText = "Translation error. Check API key.";
+      document.getElementById('translatedText').innerText = `Error: ${err.message || 'Translation failed'}`;
     }
   }
 
   function processResult(original, data, sender) {
     currentTranslationData = data;
 
-    // 1. Update UI unless in Voice Only mode
     if (outputMode !== 'voice') {
       renderResult(data);
     }
 
-    // 2. Auto-Speak if mode allows
     if (outputMode === 'both' || outputMode === 'voice') {
       speakText(data.translatedText, currentLang === 'en-to-th' ? 'th-TH' : 'en-US');
     }
 
-    // 3. Append to Conversation History
     logToHistory({
       sender: sender,
       original: original,
@@ -417,7 +420,6 @@ Output MUST be valid JSON:
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     });
 
-    // 4. Send via WebRTC to partner
     if (sender === 'user') {
       broadcastToPartner({
         original: original,
@@ -437,8 +439,8 @@ Output MUST be valid JSON:
 
   // --- CONVERSATION HISTORY LOGGING ---
   function logToHistory(entry) {
-    conversationHistory.unshift(entry); // newest at top
-    if (conversationHistory.length > 50) conversationHistory.pop(); // keep lightweight
+    conversationHistory.unshift(entry);
+    if (conversationHistory.length > 50) conversationHistory.pop();
     localStorage.setItem('BREW_HISTORY', JSON.stringify(conversationHistory));
     renderHistory();
   }
@@ -446,7 +448,7 @@ Output MUST be valid JSON:
   function renderHistory() {
     const list = document.getElementById('historyList');
     list.innerHTML = '';
-    conversationHistory.forEach((item, index) => {
+    conversationHistory.forEach((item) => {
       const bubble = document.createElement('div');
       bubble.className = `history-bubble ${item.sender}`;
       bubble.innerHTML = `
@@ -495,7 +497,6 @@ Output MUST be valid JSON:
   function setupConnection() {
     updateSyncStatus(true, "Paired!");
     conn.on('data', (payload) => {
-      // Received from partner phone: process without re-broadcasting
       currentLang = payload.lang;
       processResult(payload.original, payload.data, 'partner');
     });
@@ -515,7 +516,7 @@ Output MUST be valid JSON:
   // --- TEXT TO SPEECH ---
   function speakText(text, lang) {
     if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel(); // Stop prior audio immediately
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
     utterance.rate = 0.95;
