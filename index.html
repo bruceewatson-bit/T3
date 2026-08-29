@@ -43,20 +43,12 @@
 
     /* Language Direction Bar */
     .lang-mode-bar { display: flex; gap: 6px; background: #0f172a; padding: 3px; border-radius: 12px; border: 1px solid #334155; }
-    .btn-lang {
-      flex: 1; padding: 8px 4px; background: transparent; border: none; color: var(--text-dim);
-      font-size: 0.75rem; font-weight: 700; border-radius: 8px; cursor: pointer; text-align: center;
-      transition: all 0.2s;
-    }
+    .btn-lang { flex: 1; padding: 8px 4px; background: transparent; border: none; color: var(--text-dim); font-size: 0.75rem; font-weight: 700; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s; }
     .btn-lang.active { background: var(--accent); color: #0b0f19; }
 
     /* Output Mode Selector */
     .output-mode-container { display: flex; background: #0f172a; border-radius: 10px; border: 1px solid #334155; padding: 2px; }
-    .mode-btn {
-      flex: 1; padding: 6px 4px; font-size: 0.72rem; font-weight: 700; color: var(--text-dim);
-      background: transparent; border: none; border-radius: 8px; cursor: pointer; text-align: center;
-      transition: all 0.2s;
-    }
+    .mode-btn { flex: 1; padding: 6px 4px; font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: none; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s; }
     .mode-btn.selected { background: var(--accent); color: #0b0f19; }
 
     /* Room Bar */
@@ -84,6 +76,7 @@
     .target-text.en-out { color: #c084fc; }
     .target-text.en-out2 { color: #34d399; }
     .target-text.th-out { color: #38bdf8; }
+    .target-text.error-text { color: var(--error); font-size: 1rem; }
 
     .phonetic-box { background: var(--card-sub); padding: 8px 10px; border-radius: 8px; border-left: 3px solid var(--accent); }
     .phonetic-label { font-size: 0.65rem; text-transform: uppercase; color: var(--accent); font-weight: 800; }
@@ -92,41 +85,26 @@
     .tone-tip { font-size: 0.75rem; color: #a3e635; font-style: italic; }
     .loading-pulse { animation: pulse 0.8s infinite alternate; color: var(--text-dim); }
 
-    /* Split 1/3 Listen & 2/3 Speak Mic Bar */
+    /* Mic Bar */
     .mic-bar { display: flex; gap: 8px; align-items: stretch; }
-    .btn-listen {
-      flex: 1; padding: 14px 6px; background: #1e293b; border: 1px solid #334155;
-      border-radius: var(--radius); color: var(--text-dim); font-size: 0.82rem; font-weight: 800;
-      cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    }
+    .btn-listen { flex: 1; padding: 14px 6px; background: #1e293b; border: 1px solid #334155; border-radius: var(--radius); color: var(--text-dim); font-size: 0.82rem; font-weight: 800; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
     .btn-listen.active { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: var(--success); }
-
-    .btn-speak {
-      flex: 2; padding: 14px; background: var(--accent); border: none; border-radius: var(--radius);
-      color: #0b0f19; font-size: 1.05rem; font-weight: 800; cursor: pointer; display: flex;
-      align-items: center; justify-content: center; gap: 8px;
-    }
+    .btn-speak { flex: 2; padding: 14px; background: var(--accent); border: none; border-radius: var(--radius); color: #0b0f19; font-size: 1.05rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-speak.listening { background: var(--error); color: white; animation: pulse 1.2s infinite; }
 
-    /* Conversation History Stream */
+    /* Conversation History */
     .history-header { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 0 4px; }
     .history-title { font-size: 0.8rem; text-transform: uppercase; font-weight: 800; color: var(--text-dim); letter-spacing: 0.5px; }
     .btn-clear { background: transparent; border: none; color: #ef4444; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
-    
     .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 2px; }
-    .history-bubble {
-      padding: 10px 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px;
-      font-size: 0.85rem; border: 1px solid #334155; position: relative;
-    }
+    .history-bubble { padding: 10px 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; border: 1px solid #334155; position: relative; }
     .history-bubble.speaker-en { background: var(--bubble-en); border-left: 4px solid var(--speaker-en); }
     .history-bubble.speaker-th1 { background: var(--bubble-th1); border-left: 4px solid var(--speaker-th1); }
     .history-bubble.speaker-th2 { background: var(--bubble-th2); border-left: 4px solid var(--speaker-th2); }
-    
     .bubble-meta { display: flex; justify-content: space-between; font-size: 0.68rem; font-weight: 800; }
     .bubble-meta.en { color: #38bdf8; }
     .bubble-meta.th1 { color: #c084fc; }
     .bubble-meta.th2 { color: #34d399; }
-    
     .bubble-orig { color: #cbd5e1; font-style: italic; }
     .bubble-trans { font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-top: 2px; }
     .bubble-phonetic { font-size: 0.8rem; color: #a5f3fc; }
@@ -210,6 +188,32 @@
 </div>
 
 <script>
+  // --- HIGH-PERFORMANCE HYBRID CACHE (RAM + LOCALSTORAGE) ---
+  const RAM_CACHE = new Map();
+  const CACHE_STORAGE_KEY = 'BREW_TURBO_CACHE';
+  
+  // Seed universal rapid-fire phrases
+  const SEED_DATA = {
+    "not spicy": { translatedText: "ไม่เผ็ดนะ / ไม่เผ็ดครับ", enSoundsLike: "MY PET na", thSoundsLike: "น็อต สไปซี่", toneTip: "Soft 'p' sound." },
+    "where are you going": { translatedText: "ไปไหนอ่ะ / ไปไหนมา", enSoundsLike: "PAI-NAI-a?", thSoundsLike: "แวร์ อาร์ ยู โกอิ้ง", toneTip: "Casual street Thai." }
+  };
+  Object.entries(SEED_DATA).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
+
+  // Hydrate RAM from LocalStorage on boot
+  try {
+    const storedCache = JSON.parse(localStorage.getItem(CACHE_STORAGE_KEY) || '{}');
+    Object.entries(storedCache).forEach(([k, v]) => RAM_CACHE.set(k.toLowerCase().trim(), v));
+  } catch(e) { console.warn("Cache hydration failed"); }
+
+  function saveToCache(originalText, translationData) {
+    const key = originalText.toLowerCase().trim();
+    RAM_CACHE.set(key, translationData);
+    try {
+      const storedObj = Object.fromEntries(RAM_CACHE);
+      localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(storedObj));
+    } catch(e) { console.warn("Storage quota exceeded for cache"); }
+  }
+
   // --- STATE ---
   let langMode = 'en-to-th';
   let isAutoListenEngaged = false;
@@ -225,11 +229,8 @@
   let lastSpeechTimestamp = 0;
 
   // Initialize UI
-  if (!geminiKey) {
-    document.getElementById('apiKeySection').style.display = 'flex';
-  } else {
-    document.getElementById('geminiApiKey').value = geminiKey;
-  }
+  if (!geminiKey) document.getElementById('apiKeySection').style.display = 'flex';
+  else document.getElementById('geminiApiKey').value = geminiKey;
   renderHistory();
 
   function toggleKeySettings() {
@@ -262,7 +263,7 @@
   function getSelectedRecLang() {
     if (langMode === 'en-to-th') return 'en-US';
     if (langMode === 'th-to-en') return 'th-TH';
-    return 'th-TH'; // Auto detects best on TH baseline
+    return 'th-TH'; 
   }
 
   function setOutputMode(mode) {
@@ -272,17 +273,14 @@
     document.getElementById('modeText').className = 'mode-btn ' + (mode === 'text' ? 'selected' : '');
   }
 
-  // --- SAFE SPEECH RECOGNITION (NATIVE ONLY) ---
+  // --- NATIVE SPEECH RECOGNITION (0 DELAY) ---
   function initSpeechEngine() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser. Please use Chrome.");
-      return null;
-    }
+    if (!SpeechRecognition) return null;
 
     const rec = new SpeechRecognition();
     rec.continuous = true;
-    rec.interimResults = false;
+    rec.interimResults = false; // Relies on native engine to detect pause
 
     rec.onstart = () => {
       isHardwareRunning = true;
@@ -296,15 +294,15 @@
     rec.onresult = (event) => {
       const results = event.results;
       const lastTranscript = results[results.length - 1][0].transcript.trim();
-      if (lastTranscript) {
+      
+      if (lastTranscript && lastTranscript.length > 1) {
         document.getElementById('inputText').value = lastTranscript;
+        // Direct execution - absolutely zero arbitrary JS delay
         executeTranslation(lastTranscript);
       }
     };
 
-    rec.onerror = (e) => {
-      // Do nothing on silence error to prevent freezing
-    };
+    rec.onerror = (e) => {};
 
     rec.onend = () => {
       isHardwareRunning = false;
@@ -312,13 +310,12 @@
       speakBtn.classList.remove('listening');
       speakBtn.innerText = "🎙️ Tap to Speak";
 
-      // If Auto-Listen is ON, safely attempt to restart
       if (isAutoListenEngaged) {
         setTimeout(() => {
           if (isAutoListenEngaged && !isHardwareRunning) {
             try { rec.start(); } catch(err){}
           }
-        }, 300);
+        }, 150);
       }
     };
 
@@ -350,7 +347,7 @@
   }
 
   function triggerManualSpeak() {
-    if (isAutoListenEngaged) return; // Ignore if auto is running
+    if (isAutoListenEngaged) return; 
 
     if (!recognition) recognition = initSpeechEngine();
     recognition.lang = getSelectedRecLang();
@@ -369,7 +366,7 @@
     }
   }
 
-  // --- ROCK SOLID TRANSLATION CORE ---
+  // --- OPTIMIZED TRANSLATION CORE ---
   async function executeTranslation(text) {
     const cleanText = text.trim();
     if (!cleanText) return;
@@ -399,8 +396,15 @@
       targetLangCode = 'en-US';
     }
 
-    // UPDATE UI IMMEDIATELY
     document.getElementById('mainCard').className = `card ${speakerRole}`;
+
+    // 0ms Cache Hit
+    const cacheKey = cleanText.toLowerCase();
+    if (RAM_CACHE.has(cacheKey)) {
+      processResult(cleanText, RAM_CACHE.get(cacheKey), speakerRole, speakerLabel, targetLangCode);
+      return;
+    }
+
     document.getElementById('resultCard').style.display = 'flex';
     document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
     
@@ -434,47 +438,65 @@ Output valid JSON ONLY:
       });
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message || 'API Error');
+      
+      if (data.error) {
+        if (data.error.code === 429) {
+          throw new Error("Quota exceeded. Please wait 30 seconds before speaking again.");
+        }
+        throw new Error(data.error.message || 'API Error');
+      }
 
       let rawText = data.candidates[0].content.parts[0].text;
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const result = JSON.parse(rawText);
 
-      // GUARANTEE DOM UPDATE
-      targetEl.innerText = result.translatedText;
-      document.getElementById('enSoundsLike').innerText = result.enSoundsLike;
-      document.getElementById('thSoundsLike').innerText = result.thSoundsLike;
-      document.getElementById('toneTip').innerText = result.toneTip;
+      // Save to Turbo Cache
+      saveToCache(cleanText, result);
 
-      // ATTEMPT AUDIO/SYNC IN ISOLATION SO IT NEVER FREEZES THE UI
-      try {
-        if (outputMode === 'both' || outputMode === 'voice') {
-          speakVoiceActor(result.translatedText, targetLangCode, speakerRole);
-        }
-      } catch (audioErr) { console.warn("Audio skipped:", audioErr); }
-
-      try {
-        logToHistory({
-          speakerRole: speakerRole,
-          speakerLabel: speakerLabel,
-          original: cleanText,
-          translation: result.translatedText,
-          phonetic: speakerRole === 'speaker-en' ? result.enSoundsLike : result.thSoundsLike,
-          lang: targetLangCode,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        });
-      } catch (histErr) { console.warn("History skipped:", histErr); }
-
-      try {
-        if (conn && conn.open) {
-          conn.send({ original: cleanText, data: result, speakerRole, speakerLabel, targetLangCode });
-        }
-      } catch (peerErr) { console.warn("Peer Sync skipped:", peerErr); }
+      processResult(cleanText, result, speakerRole, speakerLabel, targetLangCode);
 
     } catch (err) {
       console.error(err);
-      targetEl.innerText = `Error: ${err.message || 'Failed'}`;
+      targetEl.className = 'target-text error-text';
+      targetEl.innerText = `Error: ${err.message}`;
     }
+  }
+
+  function processResult(original, data, speakerRole, speakerLabel, targetLangCode) {
+    if (outputMode !== 'voice') {
+      document.getElementById('resultCard').style.display = 'flex';
+      document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${speakerRole.replace('speaker-', '')}">${speakerLabel}</span>`;
+      const targetEl = document.getElementById('translatedText');
+      targetEl.className = `target-text ${speakerRole === 'speaker-th1' ? 'en-out' : speakerRole === 'speaker-th2' ? 'en-out2' : 'th-out'}`;
+      targetEl.innerText = data.translatedText;
+      document.getElementById('enSoundsLike').innerText = data.enSoundsLike;
+      document.getElementById('thSoundsLike').innerText = data.thSoundsLike;
+      document.getElementById('toneTip').innerText = data.toneTip;
+    }
+
+    try {
+      if (outputMode === 'both' || outputMode === 'voice') {
+        speakVoiceActor(data.translatedText, targetLangCode, speakerRole);
+      }
+    } catch (audioErr) {}
+
+    try {
+      logToHistory({
+        speakerRole: speakerRole,
+        speakerLabel: speakerLabel,
+        original: original,
+        translation: data.translatedText,
+        phonetic: speakerRole === 'speaker-en' ? data.enSoundsLike : data.thSoundsLike,
+        lang: targetLangCode,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+    } catch (histErr) {}
+
+    try {
+      if (conn && conn.open) {
+        conn.send({ original, data, speakerRole, speakerLabel, targetLangCode });
+      }
+    } catch (peerErr) {}
   }
 
   // --- AUDIO PLAYBACK PROFILES ---
@@ -490,7 +512,7 @@ Output valid JSON ONLY:
     window.speechSynthesis.speak(utterance);
   }
 
-  // --- LOGGING ---
+  // --- ROBUST LOGGING ---
   function logToHistory(entry) {
     conversationHistory.unshift(entry);
     if (conversationHistory.length > 50) conversationHistory.pop();
@@ -520,7 +542,7 @@ Output valid JSON ONLY:
 
   function clearHistory() {
     conversationHistory = [];
-    localStorage.removeItem('BREW_HISTORY');
+    localStorage.setItem('BREW_HISTORY', JSON.stringify([]));
     renderHistory();
   }
 
@@ -544,7 +566,6 @@ Output valid JSON ONLY:
   function setupConnection() {
     updateSyncStatus(true, "Paired!");
     conn.on('data', (payload) => {
-      // Process received data
       document.getElementById('mainCard').className = `card ${payload.speakerRole}`;
       document.getElementById('resultCard').style.display = 'flex';
       document.getElementById('speakerBadge').innerHTML = `<span class="speaker-tag ${payload.speakerRole.replace('speaker-', '')}">${payload.speakerLabel}</span>`;
